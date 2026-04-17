@@ -15,6 +15,7 @@ type Product = {
   category: string;
   flashSale?: boolean;
   discountPercentage?: number;
+  stock?: number;
 };
 
 function formatCategoryName(category: string) {
@@ -51,11 +52,11 @@ export default function CategoryProductsPage() {
   );
 
   return (
-    <main className="min-h-screen bg-gray-100 text-black p-10">
+    <main className="min-h-screen bg-gray-100 text-black p-4 sm:p-6 lg:p-10">
       <div className="max-w-7xl mx-auto">
-        <div className="flex items-center justify-between mb-6">
-          <h1 className="text-3xl font-bold">{formatCategoryName(category)} Products</h1>
-          <Link href="/" className="px-4 py-2 rounded bg-black text-white text-sm">
+        <div className="flex flex-col gap-3 mb-6 sm:flex-row sm:items-center sm:justify-between">
+          <h1 className="text-2xl font-bold sm:text-3xl">{formatCategoryName(category)} Products</h1>
+          <Link href="/" className="w-fit px-4 py-2 rounded bg-black text-white text-sm">
             Back to Home
           </Link>
         </div>
@@ -63,11 +64,11 @@ export default function CategoryProductsPage() {
         {categoryProducts.length === 0 ? (
           <p className="text-gray-600">No products found in this category.</p>
         ) : (
-          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-5">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 lg:gap-5">
             {categoryProducts.map((product) => (
               <Link key={product._id} href={`/product/${product._id}`}>
                 <div className="bg-cyan-700 rounded-lg shadow p-3 hover:shadow-md h-full flex flex-col">
-                  <div className="relative w-full h-40">
+                  <div className="relative w-full h-36 sm:h-40">
                     <ProductImageWithEmblem
                       src={product.image}
                       alt={product.name}
@@ -77,7 +78,16 @@ export default function CategoryProductsPage() {
                   </div>
 
                   <div className="flex flex-col flex-grow">
-                    <h3 className="mt-2 text-sm font-semibold line-clamp-2 min-h-[40px] text-white">{product.name}</h3>
+                    <h3 className="mt-2 text-sm font-semibold line-clamp-2 min-h-[40px] text-white sm:text-base">{product.name}</h3>
+                    <div className="mb-1">
+                      {product.stock !== undefined && product.stock === 0 ? (
+                        <span className="text-base font-bold text-red-300">Out of stock</span>
+                      ) : product.stock !== undefined && product.stock <= 5 ? (
+                        <span className="text-base font-bold text-orange-200">Quick! Few left</span>
+                      ) : (
+                        <span className="text-base font-bold text-green-300">In stock</span>
+                      )}
+                    </div>
                     {product.flashSale && (product.discountPercentage || 0) > 0 && (
                       <span className="inline-block w-fit mb-1 text-[11px] font-semibold bg-red-100 text-red-600 px-2 py-0.5 rounded">
                         Flash Sale {product.discountPercentage}% OFF
@@ -95,7 +105,7 @@ export default function CategoryProductsPage() {
                     )}
 
                     <div className="mt-auto">
-                      <button className="w-full bg-black text-white py-1.5 text-sm rounded">
+                      <button className="w-full bg-black text-white py-2.5 text-sm rounded sm:py-2">
                         Add to Cart
                       </button>
                     </div>

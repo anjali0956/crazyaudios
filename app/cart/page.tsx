@@ -73,9 +73,9 @@ export default function CartPage() {
           <span className="text-gray-800">Cart</span>
         </div>
 
-        <h1 className="mb-8 text-center text-4xl font-medium text-gray-700">Cart</h1>
+        <h1 className="mb-6 text-center text-3xl font-medium text-gray-700 sm:mb-8 sm:text-4xl">Cart</h1>
 
-        <div className="mb-8 rounded-sm bg-[#352f8f] px-6 py-4 text-white">
+        <div className="mb-6 rounded-sm bg-[#352f8f] px-4 py-4 text-sm text-white sm:mb-8 sm:px-6 sm:text-base">
           Complete your order and earn points for discounts on future purchases
         </div>
 
@@ -119,7 +119,7 @@ export default function CartPage() {
 
                   <div className="md:col-span-2 md:text-center">
                     <p className="mb-1 text-sm text-gray-500 md:hidden">Price</p>
-                    <p className="text-3xl text-gray-700">Rs {item.price.toLocaleString("en-IN")}</p>
+                    <p className="text-xl text-gray-700 sm:text-3xl">Rs {item.price.toLocaleString("en-IN")}</p>
                   </div>
 
                   <div className="md:col-span-2 md:text-center">
@@ -151,7 +151,7 @@ export default function CartPage() {
 
                   <div className="md:col-span-2 md:text-right">
                     <p className="mb-1 text-sm text-gray-500 md:hidden">Subtotal</p>
-                    <p className="text-3xl font-medium text-gray-700">
+                    <p className="text-xl font-medium text-gray-700 sm:text-3xl">
                       Rs {(item.price * item.quantity).toLocaleString("en-IN")}
                     </p>
                   </div>
@@ -161,32 +161,32 @@ export default function CartPage() {
           )}
 
           <div className="flex flex-col gap-4 px-4 py-4 md:px-5 md:py-6 lg:flex-row lg:items-center lg:justify-between">
-            <div className="flex w-full max-w-xl items-center">
+            <div className="flex w-full max-w-xl flex-col items-stretch gap-2 sm:flex-row sm:items-center sm:gap-0">
               <input
                 type="text"
                 value={couponCode}
                 onChange={(e) => setCouponCode(e.target.value)}
                 placeholder="Coupon code"
-                className="h-12 flex-1 rounded-l-full border border-gray-300 px-5 outline-none"
+                className="h-12 flex-1 rounded-full border border-gray-300 px-5 outline-none sm:rounded-l-full sm:rounded-r-none"
               />
-              <button className="h-12 rounded-r-full bg-slate-700 px-8 font-semibold text-white hover:bg-slate-800">
+              <button className="h-12 rounded-full bg-slate-700 px-8 font-semibold text-white hover:bg-slate-800 sm:rounded-l-none sm:rounded-r-full">
                 Apply coupon
               </button>
             </div>
 
-            <div className="flex flex-wrap items-center gap-3">
+            <div className="flex w-full flex-col gap-3 sm:flex-row sm:flex-wrap lg:w-auto">
               <button className="h-12 cursor-not-allowed rounded-full bg-gray-200 px-7 font-semibold text-gray-500">
                 Update cart
               </button>
               <Link
                 href="/"
-                className="inline-flex h-12 items-center rounded-full border border-gray-300 bg-white px-7 font-semibold text-gray-700 hover:bg-gray-50"
+                className="inline-flex h-12 items-center justify-center rounded-full border border-gray-300 bg-white px-7 font-semibold text-gray-700 hover:bg-gray-50"
               >
                 Continue Shopping
               </Link>
               <Link
                 href="/checkout"
-                className="inline-flex h-12 items-center rounded-full bg-[#352f8f] px-8 font-semibold text-white hover:bg-[#2b2578]"
+                className="inline-flex h-12 items-center justify-center rounded-full bg-[#352f8f] px-8 font-semibold text-white hover:bg-[#2b2578]"
               >
                 Proceed to checkout
               </Link>
@@ -194,8 +194,8 @@ export default function CartPage() {
           </div>
         </section>
 
-        <section className="ml-auto mt-10 w-full max-w-md rounded-sm border border-gray-300 bg-white p-6">
-          <h2 className="mb-5 text-4xl font-medium text-gray-700">Cart totals</h2>
+        <section className="ml-auto mt-8 w-full max-w-md rounded-sm border border-gray-300 bg-white p-4 sm:mt-10 sm:p-6">
+          <h2 className="mb-5 text-3xl font-medium text-gray-700 sm:text-4xl">Cart totals</h2>
           <div className="flex items-center justify-between border-t border-gray-200 pt-4 text-lg">
             <span className="font-semibold text-gray-600">Total</span>
             <span className="text-2xl font-bold text-gray-800">Rs {total.toLocaleString("en-IN")}</span>

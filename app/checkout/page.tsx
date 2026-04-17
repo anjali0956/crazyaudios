@@ -59,14 +59,14 @@ export default function CheckoutPage() {
   };
 
   return (
-    <main className="min-h-screen bg-gray-100 p-10 text-black">
+    <main className="min-h-screen bg-gray-100 p-4 text-black sm:p-6 lg:p-10">
 
-      <h1 className="text-3xl font-bold mb-8">Checkout</h1>
+      <h1 className="text-2xl font-bold mb-6 sm:text-3xl sm:mb-8">Checkout</h1>
 
-      <div className="grid md:grid-cols-2 gap-10">
+      <div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:gap-10">
 
         {/* Customer Details */}
-        <div className="bg-white p-6 rounded-lg shadow">
+        <div className="bg-white p-4 rounded-lg shadow sm:p-6">
 
           <h2 className="text-xl font-semibold mb-4">
             Shipping Details
@@ -82,7 +82,7 @@ export default function CheckoutPage() {
               onChange={(e) =>
                 setShipping({ ...shipping, name: e.target.value })
               }
-              className="w-full border p-2 rounded"
+              className="w-full min-h-11 border p-2 rounded"
               required
             />
 
@@ -93,7 +93,7 @@ export default function CheckoutPage() {
               onChange={(e) =>
                 setShipping({ ...shipping, email: e.target.value })
               }
-              className="w-full border p-2 rounded"
+              className="w-full min-h-11 border p-2 rounded"
               required
             />
 
@@ -104,7 +104,7 @@ export default function CheckoutPage() {
               onChange={(e) =>
                 setShipping({ ...shipping, phone: e.target.value })
               }
-              className="w-full border p-2 rounded"
+              className="w-full min-h-11 border p-2 rounded"
               required
             />
 
@@ -126,7 +126,7 @@ export default function CheckoutPage() {
               onChange={(e) =>
                 setShipping({ ...shipping, city: e.target.value })
               }
-              className="w-full border p-2 rounded"
+              className="w-full min-h-11 border p-2 rounded"
             />
 
             <input
@@ -136,7 +136,7 @@ export default function CheckoutPage() {
               onChange={(e) =>
                 setShipping({ ...shipping, state: e.target.value })
               }
-              className="w-full border p-2 rounded"
+              className="w-full min-h-11 border p-2 rounded"
             />
 
             <input
@@ -146,7 +146,7 @@ export default function CheckoutPage() {
               onChange={(e) =>
                 setShipping({ ...shipping, pincode: e.target.value })
               }
-              className="w-full border p-2 rounded"
+              className="w-full min-h-11 border p-2 rounded"
             />
 
             {/* ✅ CHECKBOX */}
@@ -175,7 +175,7 @@ export default function CheckoutPage() {
                     setBilling({ ...billing, name: e.target.value })
                   }
                   disabled={sameAsShipping}
-                  className="w-full border p-2 rounded"
+                  className="w-full min-h-11 border p-2 rounded"
                 />
 
                 <input
@@ -186,7 +186,7 @@ export default function CheckoutPage() {
                     setBilling({ ...billing, email: e.target.value })
                   }
                   disabled={sameAsShipping}
-                  className="w-full border p-2 rounded"
+                  className="w-full min-h-11 border p-2 rounded"
                 />
 
                 <input
@@ -197,7 +197,7 @@ export default function CheckoutPage() {
                     setBilling({ ...billing, phone: e.target.value })
                   }
                   disabled={sameAsShipping}
-                  className="w-full border p-2 rounded"
+                  className="w-full min-h-11 border p-2 rounded"
                 />
 
                 <textarea
@@ -218,7 +218,7 @@ export default function CheckoutPage() {
                     setBilling({ ...billing, city: e.target.value })
                   }
                   disabled={sameAsShipping}
-                  className="w-full border p-2 rounded"
+                  className="w-full min-h-11 border p-2 rounded"
                 />
 
                 <input
@@ -229,7 +229,7 @@ export default function CheckoutPage() {
                     setBilling({ ...billing, state: e.target.value })
                   }
                   disabled={sameAsShipping}
-                  className="w-full border p-2 rounded"
+                  className="w-full min-h-11 border p-2 rounded"
                 />
 
                 <input
@@ -240,7 +240,7 @@ export default function CheckoutPage() {
                     setBilling({ ...billing, pincode: e.target.value })
                   }
                   disabled={sameAsShipping}
-                  className="w-full border p-2 rounded"
+                  className="w-full min-h-11 border p-2 rounded"
                 />
 
               </div>
@@ -258,7 +258,7 @@ export default function CheckoutPage() {
         </div>
 
         {/* Order Summary */}
-        <div className="bg-white p-6 rounded-lg shadow">
+        <div className="bg-white p-4 rounded-lg shadow sm:p-6">
 
           <h2 className="text-xl font-semibold mb-4">
             Order Summary
@@ -267,7 +267,7 @@ export default function CheckoutPage() {
           {cart.map((item) => (
             <div
               key={item._id}
-              className="flex justify-between border-b py-2"
+              className="flex gap-4 justify-between border-b py-2 text-sm sm:text-base"
             >
               <span>
                 {item.name} × {item.quantity}

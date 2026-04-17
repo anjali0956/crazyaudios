@@ -121,7 +121,7 @@ export default function Home() {
     <main className="min-h-screen bg-gray-100 text-black flex flex-col">
       <section className="w-full bg-gray-100 pb-4">
         <div className="w-full">
-          <div className="relative w-full h-[185px] sm:h-[230px] md:h-[270px] lg:h-[300px] overflow-hidden bg-black">
+          <div className="relative w-full h-[140px] sm:h-[210px] md:h-[270px] lg:h-[300px] overflow-hidden bg-black">
             <div
               className="flex h-full transition-transform duration-700 ease-in-out"
               style={{ width: `${heroBanners.length * 100}%`, transform: `translateX(-${heroSlide * (100 / heroBanners.length)}%)` }}
@@ -154,10 +154,10 @@ export default function Home() {
         </div>
       </section>
 
-      <section className="p-10 flex-grow">
+      <section className="flex-grow p-4 sm:p-6 lg:p-10">
         <div className="mb-8">
           <div className="max-w-4xl mb-4">
-            <div className="flex items-center gap-3">
+            <div className="flex flex-wrap items-center gap-3">
               <p className="text-sm font-semibold text-gray-700 whitespace-nowrap">Price Filter</p>
               <p className="text-sm text-gray-600 whitespace-nowrap min-w-[80px]">
                 {priceFilter === "all" && "All"}
@@ -189,15 +189,15 @@ export default function Home() {
               ))}
             </div>
           </div>
-          <h2 className="text-3xl font-bold text-center">Featured Products</h2>
+          <h2 className="text-2xl font-bold text-center sm:text-3xl">Featured Products</h2>
         </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-5">
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 lg:gap-5">
           {filteredFeaturedProducts.map((product) => (
             <div key={product._id}>
               <Link href={`/product/${product._id}`}>
                 <div className="bg-violet-700 rounded-lg shadow p-3 hover:shadow-md h-full flex flex-col">
-                  <div className="relative w-full h-40">
+                  <div className="relative w-full h-36 sm:h-40">
                     <ProductImageWithEmblem
                       src={product.image}
                       alt={product.name}
@@ -207,15 +207,15 @@ export default function Home() {
                   </div>
 
                   <div className="flex flex-col flex-grow">
-                    <h3 className="mt-2 text-sm font-semibold line-clamp-2 min-h-[40px] text-white">{product.name}</h3>
+                    <h3 className="mt-2 text-sm font-semibold line-clamp-2 min-h-[40px] text-white sm:text-base">{product.name}</h3>
 
                     <div className="mb-1">
                       {product.stock !== undefined && product.stock === 0 ? (
-                        <span className="text-xs font-medium text-red-400">Out of stock</span>
+                        <span className="text-base font-bold text-red-300">Out of stock</span>
                       ) : product.stock !== undefined && product.stock <= 5 ? (
-                        <span className="text-xs font-medium text-orange-300">Quick! Few left</span>
+                        <span className="text-base font-bold text-orange-200">Quick! Few left</span>
                       ) : (
-                        <span className="text-xs font-medium text-green-400">In stock</span>
+                        <span className="text-base font-bold text-green-300">In stock</span>
                       )}
                     </div>
 
@@ -236,7 +236,7 @@ export default function Home() {
                     )}
 
                     <div className="mt-auto">
-                      <button className="w-full bg-black text-white py-1.5 text-sm rounded">
+                      <button className="w-full bg-black text-white py-2.5 text-sm rounded sm:py-2">
                         Add to Cart
                       </button>
                     </div>
@@ -254,16 +254,16 @@ export default function Home() {
         )}
       </section>
 
-      <section className="px-10 pb-10">
-        <h2 className="text-3xl font-bold mb-4">Categories</h2>
-        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-4">
+      <section className="px-4 pb-8 sm:px-6 lg:px-10 lg:pb-10">
+        <h2 className="text-2xl font-bold mb-4 sm:text-3xl">Categories</h2>
+        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 lg:gap-4">
           {categoryCards.map((item) => (
             <Link
               key={item.category}
               href={`/category/${encodeURIComponent(item.category)}`}
-              className="bg-white rounded-2xl border border-gray-200 p-4 shadow-sm hover:shadow-md transition"
+              className="bg-white rounded-lg border border-gray-200 p-3 shadow-sm hover:shadow-md transition sm:p-4"
             >
-              <div className="relative w-full h-44 rounded-2xl bg-violet-500 overflow-hidden">
+              <div className="relative w-full h-28 rounded-lg bg-violet-500 overflow-hidden sm:h-44">
                 <Image
                   src={item.image}
                   alt={formatCategoryName(item.category)}
@@ -271,7 +271,7 @@ export default function Home() {
                   className="object-contain p-3"
                 />
               </div>
-              <p className="mt-4 text-gray-700 text-2xl leading-8 font-semibold">
+              <p className="mt-3 text-gray-700 text-base leading-6 font-semibold sm:mt-4 sm:text-2xl sm:leading-8">
                 {formatCategoryName(item.category)}
               </p>
             </Link>
@@ -279,19 +279,19 @@ export default function Home() {
         </div>
       </section>
 
-      <section className="px-10 pb-10">
+      <section className="px-4 pb-8 sm:px-6 lg:px-10 lg:pb-10">
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-          <Link href="/category/diode" className="relative block h-[220px] md:h-[280px] rounded-2xl overflow-hidden border border-gray-200 shadow-sm">
+          <Link href="/category/diode" className="relative block h-[160px] sm:h-[220px] md:h-[280px] rounded-lg overflow-hidden border border-gray-200 shadow-sm">
             <Image src={homepageBanners.left} alt="CrazyAudios promo banner 1" fill className="object-cover" />
           </Link>
-        <Link href="/" onClick={handleScrollToTop} className="relative block h-[220px] md:h-[280px] rounded-2xl overflow-hidden border border-gray-200 shadow-sm">
+        <Link href="/" onClick={handleScrollToTop} className="relative block h-[160px] sm:h-[220px] md:h-[280px] rounded-lg overflow-hidden border border-gray-200 shadow-sm">
             <Image src={homepageBanners.right} alt="CrazyAudios promo banner 2" fill className="object-cover" />
         </Link>
         </div>
       </section>
 
-      <section className="px-10 pb-10">
-        <div className="rounded-2xl border border-gray-200 bg-white p-5 md:p-7 shadow-sm">
+      <section className="px-4 pb-8 sm:px-6 lg:px-10 lg:pb-10">
+        <div className="rounded-lg border border-gray-200 bg-white p-4 shadow-sm md:p-7">
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-5">
             <div className="rounded-xl border border-gray-100 bg-gradient-to-br from-white to-gray-50 p-4 text-center hover:shadow-md transition">
               <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-orange-100 text-orange-600">

@@ -50,10 +50,10 @@ function Navbar() {
   }, [search, products]);
 
   return (
-    <nav className="flex justify-between items-center px-8 py-4 bg-black text-white">
+    <nav className="flex flex-col gap-4 bg-black px-4 py-4 text-white sm:px-6 lg:flex-row lg:items-center lg:justify-between lg:px-8">
 
       {/* LEFT */}
-      <div className="flex flex-col gap-2">
+      <div className="flex w-full flex-col gap-2 lg:w-auto">
         <Link href="/" className="text-xl font-bold">
           CrazyAudios
         </Link>
@@ -61,8 +61,8 @@ function Navbar() {
       </div>
 
       {/* CENTER → 🔍 SEARCH WITH DROPDOWN */}
-      <div className="flex-1 flex justify-center">
-        <div className="relative w-80">
+      <div className="flex w-full justify-center lg:flex-1">
+        <div className="relative w-full max-w-md">
 
           <input
             type="text"
@@ -122,7 +122,7 @@ function Navbar() {
       </div>
 
       {/* RIGHT */}
-      <div className="flex items-center gap-6">
+      <div className="flex w-full flex-wrap items-center gap-x-5 gap-y-2 text-sm sm:text-base lg:w-auto lg:justify-end lg:gap-6">
         <Link href="/">Home</Link>
         <Link href="/cart">Cart</Link>
 

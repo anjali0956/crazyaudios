@@ -35,7 +35,7 @@ export default function CategoryDropdown() {
 
         router.push(`/category/${encodeURIComponent(value)}`);
       }}
-      className="px-4 py-2 rounded bg-gray-800 text-white"
+      className="w-full rounded bg-gray-800 px-4 py-2 text-white lg:w-60"
     >
       {categories.map((cat) => (
         <option key={cat} value={cat}>
