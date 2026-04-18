@@ -67,7 +67,7 @@ export default function CategoryProductsPage() {
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 lg:gap-5">
             {categoryProducts.map((product) => (
               <Link key={product._id} href={`/product/${product._id}`}>
-                <div className="bg-cyan-700 rounded-lg shadow p-3 hover:shadow-md h-full flex flex-col">
+                <div className="bg-blue-800 rounded-lg shadow p-3 hover:shadow-md h-full flex flex-col">
                   <div className="relative w-full h-36 sm:h-40">
                     <ProductImageWithEmblem
                       src={product.image}
@@ -98,10 +98,10 @@ export default function CategoryProductsPage() {
                         <p className="text-sm font-semibold text-red-600">
                           Rs {Math.round(product.price * (1 - (product.discountPercentage || 0) / 100))}
                         </p>
-                        <p className="text-xs text-cyan-100 line-through">Rs {product.price}</p>
+                        <p className="text-xs text-blue-100 line-through">Rs {product.price}</p>
                       </div>
                     ) : (
-                      <p className="text-sm text-cyan-100">Rs {product.price}</p>
+                      <p className="text-sm text-blue-100">Rs {product.price}</p>
                     )}
 
                     <div className="mt-auto">

@@ -196,7 +196,7 @@ export default function Home() {
           {filteredFeaturedProducts.map((product) => (
             <div key={product._id}>
               <Link href={`/product/${product._id}`}>
-                <div className="bg-violet-700 rounded-lg shadow p-3 hover:shadow-md h-full flex flex-col">
+                <div className="bg-blue-800 rounded-lg shadow p-3 hover:shadow-md h-full flex flex-col">
                   <div className="relative w-full h-36 sm:h-40">
                     <ProductImageWithEmblem
                       src={product.image}
@@ -229,10 +229,10 @@ export default function Home() {
                         <p className="text-sm font-semibold text-red-600">
                           Rs {Math.round(product.price * (1 - (product.discountPercentage || 0) / 100))}
                         </p>
-                        <p className="text-xs text-violet-100 line-through">Rs {product.price}</p>
+                        <p className="text-xs text-blue-100 line-through">Rs {product.price}</p>
                       </div>
                     ) : (
-                      <p className="text-sm text-violet-100">Rs {product.price}</p>
+                      <p className="text-sm text-blue-100">Rs {product.price}</p>
                     )}
 
                     <div className="mt-auto">
@@ -261,9 +261,9 @@ export default function Home() {
             <Link
               key={item.category}
               href={`/category/${encodeURIComponent(item.category)}`}
-              className="bg-white rounded-lg border border-gray-200 p-3 shadow-sm hover:shadow-md transition sm:p-4"
+              className="bg-blue-800 rounded-lg border border-blue-900 p-3 shadow-sm hover:shadow-md transition sm:p-4"
             >
-              <div className="relative w-full h-28 rounded-lg bg-violet-500 overflow-hidden sm:h-44">
+              <div className="relative w-full h-28 rounded-lg bg-blue-700 overflow-hidden sm:h-44">
                 <Image
                   src={item.image}
                   alt={formatCategoryName(item.category)}
@@ -271,7 +271,7 @@ export default function Home() {
                   className="object-contain p-3"
                 />
               </div>
-              <p className="mt-3 text-gray-700 text-base leading-6 font-semibold sm:mt-4 sm:text-2xl sm:leading-8">
+              <p className="mt-3 text-white text-base leading-6 font-semibold sm:mt-4 sm:text-2xl sm:leading-8">
                 {formatCategoryName(item.category)}
               </p>
             </Link>
