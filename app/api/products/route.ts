@@ -1,6 +1,13 @@
 import { NextResponse } from "next/server";
 import dbConnect from "@/lib/mongodb";
 import Product from "@/models/Product";
+import { getServerSession } from "next-auth";
+import { authOptions } from "@/app/api/auth/[...nextauth]/route";
+
+async function requireAdmin() {
+  const session = await getServerSession(authOptions);
+  return session?.user?.role === "admin";
+}
 
 export async function GET() {
   try {
@@ -14,6 +21,10 @@ export async function GET() {
 
 export async function POST(req: Request) {
   try {
+    if (!(await requireAdmin())) {
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    }
+
     await dbConnect();
 
     const body = await req.json();
@@ -60,6 +71,10 @@ export async function POST(req: Request) {
 
 export async function DELETE(req: Request) {
   try {
+    if (!(await requireAdmin())) {
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    }
+
     await dbConnect();
     const { id } = await req.json();
 
@@ -73,6 +88,10 @@ export async function DELETE(req: Request) {
 
 export async function PUT(req: Request) {
   try {
+    if (!(await requireAdmin())) {
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    }
+
     await dbConnect();
 
     const {
@@ -119,6 +138,10 @@ export async function PUT(req: Request) {
 
 export async function PATCH(req: Request) {
   try {
+    if (!(await requireAdmin())) {
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    }
+
     await dbConnect();
     const { id, featured, flashSale, discountPercentage } = await req.json();
 
