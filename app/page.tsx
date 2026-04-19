@@ -54,14 +54,6 @@ export default function Home() {
     });
   }, [setSelectedCategory]);
 
-  const handleScrollToTop = (e: React.MouseEvent<HTMLAnchorElement>) => {
-    e.preventDefault();
-    window.scrollTo({
-      top: 0,
-      behavior: "smooth",
-    });
-  };
-
   const featuredProducts = useMemo(
     () => products.filter((product) => Boolean(product.featured)),
     [products]
@@ -285,7 +277,7 @@ export default function Home() {
           <Link href="/category/diode" className="relative block h-[160px] sm:h-[220px] md:h-[280px] rounded-lg overflow-hidden border border-gray-200 shadow-sm">
             <Image src={homepageBanners.left} alt="CrazyAudios promo banner 1" fill className="object-cover" />
           </Link>
-        <Link href="/" onClick={handleScrollToTop} className="relative block h-[160px] sm:h-[220px] md:h-[280px] rounded-lg overflow-hidden border border-gray-200 shadow-sm">
+        <Link href="/category/tonecontrol" className="relative block h-[160px] sm:h-[220px] md:h-[280px] rounded-lg overflow-hidden border border-gray-200 shadow-sm">
             <Image src={homepageBanners.right} alt="CrazyAudios promo banner 2" fill className="object-cover" />
         </Link>
         </div>
