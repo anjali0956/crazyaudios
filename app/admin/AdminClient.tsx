@@ -40,12 +40,15 @@ export default function AdminClient() {
     setProducts(res.data);
   };
 
+  const fetchSettings = async () => {
+    const res = await axios.get("/api/settings");
+    setHomeBannerLeft(res.data?.homepageBanners?.left || "/banners/crazyaudios-banner-left.svg");
+    setHomeBannerRight(res.data?.homepageBanners?.right || "/banners/crazyaudios-banner-right.svg");
+  };
+
   useEffect(() => {
     fetchProducts();
-
-    const saved = JSON.parse(localStorage.getItem("homepageBanners") || "{}");
-    setHomeBannerLeft(saved.left || "/banners/crazyaudios-banner-left.svg");
-    setHomeBannerRight(saved.right || "/banners/crazyaudios-banner-right.svg");
+    fetchSettings();
   }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -150,11 +153,10 @@ export default function AdminClient() {
     );
   };
 
-  const saveHomepageBanners = () => {
-    localStorage.setItem(
-      "homepageBanners",
-      JSON.stringify({ left: homeBannerLeft, right: homeBannerRight })
-    );
+  const saveHomepageBanners = async () => {
+    await axios.put("/api/settings", {
+      homepageBanners: { left: homeBannerLeft, right: homeBannerRight },
+    });
     alert("Homepage banner pair updated");
   };
 

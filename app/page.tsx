@@ -46,10 +46,11 @@ export default function Home() {
       setProducts(res.data);
     });
 
-    const saved = JSON.parse(localStorage.getItem("homepageBanners") || "{}");
-    setHomepageBanners({
-      left: saved.left || "/banners/crazyaudios-banner-left.svg",
-      right: saved.right || "/banners/crazyaudios-banner-right.svg",
+    axios.get("/api/settings").then((res) => {
+      setHomepageBanners({
+        left: res.data?.homepageBanners?.left || "/banners/crazyaudios-banner-left.svg",
+        right: res.data?.homepageBanners?.right || "/banners/crazyaudios-banner-right.svg",
+      });
     });
   }, [setSelectedCategory]);
 
