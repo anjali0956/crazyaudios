@@ -1,1 +1,1 @@
-running trials
+running trials - checking for domain name redeploy
