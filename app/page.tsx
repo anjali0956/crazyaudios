@@ -83,9 +83,9 @@ export default function Home() {
   }, [products]);
 
   const heroBanners = [
-    { src: "/banners/peerless-store-audio.svg", link: "/category/speaker" },
-    { src: "/banners/ca-certified-banner.svg" },
-    { src: "/banners/brainsaudios-banner.svg", link: "/category/tonecontrol" },
+    { src: "/banners/peerless-store-audio.svg", link: "/category/speaker", className: "object-contain object-center" },
+    { src: "/banners/ca-certified-banner.svg", className: "object-contain object-center" },
+    { src: "/banners/brainsaudios-banner.svg", link: "/category/tonecontrol", className: "object-contain object-center" },
     { src: "/banners/crazyaudios-flea-market-banner.svg", className: "object-contain object-center" },
   ];
 
