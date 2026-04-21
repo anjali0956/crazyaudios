@@ -356,9 +356,9 @@ export default function Home() {
             <div className="mt-6">
               <h3 className="font-semibold mb-3">Policies</h3>
               <ul className="space-y-2 text-sm text-gray-400">
-                <li>Privacy Policy</li>
-                <li>Terms of Service</li>
-                <li>Shipping & Refund</li>
+                <li><Link href="/privacy-policy" className="hover:text-white">Privacy Policy</Link></li>
+                <li><Link href="/terms-of-service" className="hover:text-white">Terms of Service</Link></li>
+                <li><Link href="/shipping-refund" className="hover:text-white">Shipping & Refund</Link></li>
               </ul>
             </div>
           </div>
@@ -366,17 +366,17 @@ export default function Home() {
           <div>
             <h3 className="font-semibold mb-3">Information</h3>
             <ul className="space-y-2 text-sm text-gray-400">
-              <li>Track Your Order</li>
-              <li>FAQ</li>
+              <li><Link href="/track-your-order" className="hover:text-white">Track Your Order</Link></li>
+              <li><Link href="/faq" className="hover:text-white">FAQ</Link></li>
             </ul>
           </div>
 
           <div>
             <h3 className="font-semibold mb-3">My Account</h3>
             <ul className="space-y-2 text-sm text-gray-400">
-              <li>Cart</li>
-              <li>Checkout</li>
-              <li>My Account</li>
+              <li><Link href="/cart" className="hover:text-white">Cart</Link></li>
+              <li><Link href="/checkout" className="hover:text-white">Checkout</Link></li>
+              <li><Link href="/my-account" className="hover:text-white">My Account</Link></li>
               <li>Payment Options</li>
             </ul>
           </div>
@@ -384,8 +384,8 @@ export default function Home() {
           <div>
             <h3 className="font-semibold mb-3">Services</h3>
             <ul className="space-y-2 text-sm text-gray-400 mb-4">
-              <li>About Us</li>
-              <li>Contact Us</li>
+              <li><Link href="/about-us" className="hover:text-white">About Us</Link></li>
+              <li><Link href="/contact-us" className="hover:text-white">Contact Us</Link></li>
             </ul>
 
             <div className="mt-4">
