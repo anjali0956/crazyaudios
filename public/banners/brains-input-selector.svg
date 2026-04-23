@@ -1,0 +1,56 @@
+<svg width="1200" height="1200" viewBox="0 0 1200 1200" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1200" y2="1200" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#0b2137"/>
+      <stop offset="0.55" stop-color="#0d3553"/>
+      <stop offset="1" stop-color="#1d2939"/>
+    </linearGradient>
+    <linearGradient id="board" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#31c271"/>
+      <stop offset="1" stop-color="#0d8d4b"/>
+    </linearGradient>
+  </defs>
+
+  <rect width="1200" height="1200" fill="url(#bg)"/>
+  <path d="M0 354H1200" stroke="#2f7fb0" stroke-opacity="0.18" stroke-width="2"/>
+  <path d="M0 404H1200" stroke="#2f7fb0" stroke-opacity="0.18" stroke-width="2"/>
+  <path d="M0 454H1200" stroke="#2f7fb0" stroke-opacity="0.18" stroke-width="2"/>
+  <path d="M0 504H1200" stroke="#2f7fb0" stroke-opacity="0.18" stroke-width="2"/>
+  <path d="M100 300V960M220 300V960M340 300V960M460 300V960M580 300V960M700 300V960M820 300V960M940 300V960M1060 300V960" stroke="#2f7fb0" stroke-opacity="0.12" stroke-width="2"/>
+
+  <text x="68" y="112" fill="#e5eef6" font-size="70" font-family="Arial, sans-serif" font-weight="700">PROFESSIONAL 4-CHANNEL</text>
+  <text x="148" y="196" fill="#ffffff" font-size="88" font-family="Arial, sans-serif" font-weight="800">INPUT SELECTOR</text>
+  <text x="162" y="260" fill="#d7e4ef" font-size="54" font-family="Arial, sans-serif">Smart audio signal routing</text>
+
+  <g transform="translate(248 355) rotate(11 360 280)">
+    <rect x="40" y="40" width="660" height="500" rx="24" fill="url(#board)" stroke="#0b5e34" stroke-width="10"/>
+    <rect x="82" y="96" width="90" height="182" rx="12" fill="#171717"/>
+    <rect x="82" y="294" width="90" height="182" rx="12" fill="#171717"/>
+    <circle cx="96" cy="118" r="34" fill="#bfc5c8"/>
+    <circle cx="96" cy="168" r="34" fill="#bfc5c8"/>
+    <circle cx="96" cy="218" r="34" fill="#bfc5c8"/>
+    <circle cx="96" cy="318" r="34" fill="#bfc5c8"/>
+    <circle cx="96" cy="368" r="34" fill="#bfc5c8"/>
+    <circle cx="96" cy="418" r="34" fill="#bfc5c8"/>
+
+    <rect x="238" y="92" width="122" height="72" rx="8" fill="#f2b44b"/>
+    <rect x="238" y="182" width="122" height="72" rx="8" fill="#f2b44b"/>
+    <rect x="238" y="272" width="122" height="72" rx="8" fill="#f2b44b"/>
+    <rect x="238" y="362" width="122" height="72" rx="8" fill="#f2b44b"/>
+
+    <rect x="546" y="92" width="72" height="62" rx="8" fill="#6bd16f"/>
+    <rect x="520" y="180" width="112" height="18" rx="4" fill="#d2ece0"/>
+    <rect x="520" y="228" width="112" height="18" rx="4" fill="#d2ece0"/>
+    <rect x="520" y="276" width="112" height="18" rx="4" fill="#d2ece0"/>
+    <rect x="520" y="324" width="112" height="18" rx="4" fill="#d2ece0"/>
+    <rect x="520" y="372" width="112" height="18" rx="4" fill="#d2ece0"/>
+
+    <circle cx="420" cy="448" r="26" fill="#aab6c0"/>
+    <circle cx="486" cy="448" r="26" fill="#aab6c0"/>
+    <circle cx="552" cy="448" r="26" fill="#aab6c0"/>
+    <rect x="382" y="112" width="92" height="152" rx="12" fill="#17364f"/>
+  </g>
+
+  <text x="62" y="1015" fill="#f3f5f7" font-size="38" font-family="Arial, sans-serif">4 stereo RCA inputs -> 1 main output</text>
+  <text x="62" y="1068" fill="#f3f5f7" font-size="38" font-family="Arial, sans-serif">12V DC operation • Visual channel status • Fast, click-free switching</text>
+</svg>

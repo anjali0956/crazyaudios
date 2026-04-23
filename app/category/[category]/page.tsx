@@ -6,6 +6,7 @@ import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useCategory } from "@/app/components/CategoryContext";
 import ProductImageWithEmblem from "@/app/components/ProductImageWithEmblem";
+import formatCategoryName from "@/lib/formatCategoryName";
 
 type Product = {
   _id: string;
@@ -17,14 +18,6 @@ type Product = {
   discountPercentage?: number;
   stock?: number;
 };
-
-function formatCategoryName(category: string) {
-  return category
-    .split(" ")
-    .filter(Boolean)
-    .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
-    .join(" ");
-}
 
 export default function CategoryProductsPage() {
   const params = useParams<{ category: string }>();

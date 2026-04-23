@@ -6,6 +6,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { useCategory } from "./components/CategoryContext";
 import ProductImageWithEmblem from "./components/ProductImageWithEmblem";
+import formatCategoryName from "@/lib/formatCategoryName";
 
 type Product = {
   _id: string;
@@ -18,14 +19,6 @@ type Product = {
   discountPercentage?: number;
   stock?: number;
 };
-
-function formatCategoryName(category: string) {
-  return category
-    .split(" ")
-    .filter(Boolean)
-    .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
-    .join(" ");
-}
 
 export default function Home() {
   const [products, setProducts] = useState<Product[]>([]);

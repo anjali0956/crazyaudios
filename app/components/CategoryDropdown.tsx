@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import axios from "axios";
 import { useCategory } from "./CategoryContext";
 import { useRouter } from "next/navigation";
+import formatCategoryName from "@/lib/formatCategoryName";
 
 export default function CategoryDropdown() {
   const { selectedCategory, setSelectedCategory } = useCategory();
@@ -39,7 +40,7 @@ export default function CategoryDropdown() {
     >
       {categories.map((cat) => (
         <option key={cat} value={cat}>
-          {cat.charAt(0).toUpperCase() + cat.slice(1)}
+          {formatCategoryName(cat)}
         </option>
       ))}
     </select>

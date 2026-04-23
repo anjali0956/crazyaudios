@@ -6,7 +6,7 @@ import CategoryDropdown from "./components/CategoryDropdown";
 import { CategoryProvider } from "./components/CategoryContext";
 import { useEffect, useState } from "react";
 import axios from "axios";
-import { useRouter } from "next/navigation";
+import { useRouter, usePathname } from "next/navigation";
 
 function Navbar() {
   const { data: session } = useSession();
@@ -150,6 +150,14 @@ function Navbar() {
 }
 
 export default function Providers({ children }: { children: React.ReactNode }) {
+  const pathname = usePathname();
+
+  useEffect(() => {
+    if (pathname) {
+      axios.post("/api/traffic", { path: pathname }).catch(() => {});
+    }
+  }, [pathname]);
+
   return (
     <SessionProvider>
       <CategoryProvider>
