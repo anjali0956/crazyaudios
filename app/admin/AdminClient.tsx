@@ -15,8 +15,31 @@ type Product = {
   discountPercentage?: number;
 };
 
+type TrafficSummary = {
+  totalPageViews: number;
+  todayPageViews: number;
+  totalUniqueVisitors: number;
+  todayUniqueVisitors: number;
+};
+
+type TopPage = {
+  path: string;
+  views: number;
+  visitors: number;
+};
+
+type DailyTraffic = {
+  label: string;
+  views: number;
+  visitors: number;
+};
+
 export default function AdminClient() {
   const [products, setProducts] = useState<Product[]>([]);
+  const [trafficSummary, setTrafficSummary] = useState<TrafficSummary | null>(null);
+  const [topPages, setTopPages] = useState<TopPage[]>([]);
+  const [recentDailyViews, setRecentDailyViews] = useState<DailyTraffic[]>([]);
+  const [trafficLoading, setTrafficLoading] = useState(true);
 
   const [name, setName] = useState("");
   const [price, setPrice] = useState("");
@@ -46,9 +69,26 @@ export default function AdminClient() {
     setHomeBannerRight(res.data?.homepageBanners?.right || "/banners/crazyaudios-banner-right.svg");
   };
 
+  const fetchTrafficAnalytics = async () => {
+    try {
+      setTrafficLoading(true);
+      const res = await axios.get("/api/traffic");
+      setTrafficSummary(res.data?.summary || null);
+      setTopPages(res.data?.topPages || []);
+      setRecentDailyViews(res.data?.recentDailyViews || []);
+    } catch {
+      setTrafficSummary(null);
+      setTopPages([]);
+      setRecentDailyViews([]);
+    } finally {
+      setTrafficLoading(false);
+    }
+  };
+
   useEffect(() => {
     fetchProducts();
     fetchSettings();
+    fetchTrafficAnalytics();
   }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -164,10 +204,109 @@ export default function AdminClient() {
   const filteredProducts = selectedCategoryFilter === "All"
     ? products
     : products.filter((p) => p.category === selectedCategoryFilter);
+  const maxDailyViews = Math.max(...recentDailyViews.map((day) => day.views), 1);
 
   return (
     <main className="min-h-screen bg-gray-200 text-black p-10">
       <h1 className="text-3xl font-bold mb-8">Admin Panel</h1>
+
+      <section className="mb-10 space-y-6">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <h2 className="text-2xl font-bold">Traffic Analytics</h2>
+            <p className="text-sm text-gray-600">
+              Live site traffic overview from your own website visits data.
+            </p>
+          </div>
+          <button
+            onClick={fetchTrafficAnalytics}
+            className="rounded-lg bg-black px-4 py-2 text-white self-start"
+          >
+            Refresh Analytics
+          </button>
+        </div>
+
+        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+          <div className="rounded-xl bg-white p-5 shadow">
+            <p className="text-sm font-medium text-gray-500">Total Page Views</p>
+            <p className="mt-2 text-3xl font-bold">
+              {trafficLoading ? "..." : trafficSummary?.totalPageViews ?? 0}
+            </p>
+          </div>
+          <div className="rounded-xl bg-white p-5 shadow">
+            <p className="text-sm font-medium text-gray-500">Today&apos;s Page Views</p>
+            <p className="mt-2 text-3xl font-bold">
+              {trafficLoading ? "..." : trafficSummary?.todayPageViews ?? 0}
+            </p>
+          </div>
+          <div className="rounded-xl bg-white p-5 shadow">
+            <p className="text-sm font-medium text-gray-500">Unique Visitors</p>
+            <p className="mt-2 text-3xl font-bold">
+              {trafficLoading ? "..." : trafficSummary?.totalUniqueVisitors ?? 0}
+            </p>
+          </div>
+          <div className="rounded-xl bg-white p-5 shadow">
+            <p className="text-sm font-medium text-gray-500">Today&apos;s Unique Visitors</p>
+            <p className="mt-2 text-3xl font-bold">
+              {trafficLoading ? "..." : trafficSummary?.todayUniqueVisitors ?? 0}
+            </p>
+          </div>
+        </div>
+
+        <div className="grid gap-6 lg:grid-cols-2">
+          <div className="rounded-xl bg-white p-6 shadow">
+            <h3 className="mb-4 text-lg font-semibold">Top Pages Last 7 Days</h3>
+            <div className="space-y-3">
+              {topPages.length > 0 ? (
+                topPages.map((page) => (
+                  <div
+                    key={page.path}
+                    className="flex items-center justify-between rounded-lg border border-gray-200 px-4 py-3"
+                  >
+                    <div className="min-w-0">
+                      <p className="truncate font-medium">{page.path}</p>
+                      <p className="text-sm text-gray-500">{page.visitors} unique visitors</p>
+                    </div>
+                    <p className="ml-4 text-right font-semibold">{page.views} views</p>
+                  </div>
+                ))
+              ) : (
+                <p className="text-sm text-gray-500">
+                  {trafficLoading ? "Loading top pages..." : "No traffic data yet."}
+                </p>
+              )}
+            </div>
+          </div>
+
+          <div className="rounded-xl bg-white p-6 shadow">
+            <h3 className="mb-4 text-lg font-semibold">Recent 7-Day Activity</h3>
+            <div className="space-y-4">
+              {recentDailyViews.length > 0 ? (
+                recentDailyViews.map((day) => (
+                  <div key={day.label}>
+                    <div className="mb-1 flex items-center justify-between text-sm">
+                      <span className="font-medium">{day.label}</span>
+                      <span className="text-gray-600">
+                        {day.views} views • {day.visitors} visitors
+                      </span>
+                    </div>
+                    <div className="h-3 overflow-hidden rounded-full bg-gray-200">
+                      <div
+                        className="h-full rounded-full bg-blue-600"
+                        style={{ width: `${Math.max((day.views / maxDailyViews) * 100, 8)}%` }}
+                      />
+                    </div>
+                  </div>
+                ))
+              ) : (
+                <p className="text-sm text-gray-500">
+                  {trafficLoading ? "Loading recent activity..." : "No recent activity yet."}
+                </p>
+              )}
+            </div>
+          </div>
+        </div>
+      </section>
 
       <div className="grid md:grid-cols-2 gap-10">
         <form onSubmit={handleSubmit} className="bg-white p-6 rounded-xl shadow space-y-4">

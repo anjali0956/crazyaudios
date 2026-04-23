@@ -153,9 +153,18 @@ export default function Providers({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
 
   useEffect(() => {
-    if (pathname) {
-      axios.post("/api/traffic", { path: pathname }).catch(() => {});
+    if (!pathname || pathname.startsWith("/admin") || pathname.startsWith("/api")) {
+      return;
     }
+
+    let visitorId = localStorage.getItem("trafficVisitorId");
+
+    if (!visitorId) {
+      visitorId = crypto.randomUUID();
+      localStorage.setItem("trafficVisitorId", visitorId);
+    }
+
+    axios.post("/api/traffic", { path: pathname, visitorId }).catch(() => {});
   }, [pathname]);
 
   return (
