@@ -126,7 +126,7 @@ export default function CheckoutPage() {
       const order = orderRes.data;
 
       const razorpay = new window.Razorpay({
-        key: process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID,
+        key: order.key_id,
         amount: order.amount,
         currency: order.currency,
         name: "CrazyAudios",

@@ -34,6 +34,16 @@ function getRazorpayClient() {
   });
 }
 
+function getPublicRazorpayKey() {
+  const keyId = process.env.RAZORPAY_KEY_ID;
+
+  if (!keyId) {
+    throw new Error("Razorpay key ID is not configured");
+  }
+
+  return keyId;
+}
+
 export async function POST(req: Request) {
   try {
     await dbConnect();
@@ -133,6 +143,7 @@ export async function POST(req: Request) {
 
     return NextResponse.json({
       internal_order_id: String(savedOrder._id),
+      key_id: getPublicRazorpayKey(),
       order_id: razorpayOrder.id,
       amount: razorpayOrder.amount,
       currency: razorpayOrder.currency,
