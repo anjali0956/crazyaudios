@@ -22,6 +22,9 @@ export default function MyAccountPage() {
           <Link href="/checkout" className="rounded-lg border border-gray-200 px-4 py-3 font-medium hover:bg-gray-50">
             Go to Checkout
           </Link>
+          <Link href="/orders" className="rounded-lg border border-gray-200 px-4 py-3 font-medium hover:bg-gray-50">
+            My Orders
+          </Link>
         </div>
       </section>
 

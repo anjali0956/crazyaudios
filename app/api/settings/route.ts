@@ -49,8 +49,6 @@ export async function PUT(req: Request) {
       );
     }
 
-    await dbConnect();
-
     const settings = await SiteSettings.findOneAndUpdate(
       { key: "site" },
       { key: "site", homepageBanners: { left, right } },
