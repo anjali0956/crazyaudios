@@ -5,13 +5,14 @@ const ProductSchema = new mongoose.Schema(
     name: { type: String, required: true },
     price: { type: Number, required: true },
     image: { type: String, required: true },
-
-    // ✅ FIXED PROPERLY
+    extraImages: {
+      type: [String],
+      default: [],
+    },
     description: {
       type: [String],
       default: [],
     },
-
     stock: { type: Number, required: true },
     category: { type: String, required: true },
     featured: { type: Boolean, default: false },
@@ -21,7 +22,6 @@ const ProductSchema = new mongoose.Schema(
   { timestamps: true }
 );
 
-// ✅ VERY IMPORTANT FIX (prevents old schema caching)
 delete mongoose.models.Product;
 
 export default mongoose.model("Product", ProductSchema);

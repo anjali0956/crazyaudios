@@ -25,6 +25,17 @@ const OrderItemSchema = new mongoose.Schema(
   { _id: false }
 );
 
+const TrackingEventSchema = new mongoose.Schema(
+  {
+    status: { type: String, required: true },
+    title: { type: String, required: true },
+    description: { type: String, default: "" },
+    location: { type: String, default: "" },
+    createdAt: { type: Date, default: Date.now },
+  },
+  { _id: false }
+);
+
 const OrderSchema = new mongoose.Schema(
   {
     receipt: { type: String, required: true, unique: true },
@@ -47,6 +58,15 @@ const OrderSchema = new mongoose.Schema(
       enum: ["created", "paid", "failed"],
       default: "created",
     },
+    fulfillmentStatus: {
+      type: String,
+      enum: ["processing", "packed", "shipped", "out_for_delivery", "delivered", "cancelled"],
+      default: "processing",
+    },
+    courierName: { type: String, default: "" },
+    trackingNumber: { type: String, default: "" },
+    estimatedDelivery: { type: Date, default: null },
+    trackingTimeline: { type: [TrackingEventSchema], default: [] },
     razorpayOrderId: { type: String, required: true, unique: true, index: true },
     razorpayPaymentId: { type: String, default: "" },
     razorpaySignature: { type: String, default: "" },

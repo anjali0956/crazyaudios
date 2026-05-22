@@ -63,8 +63,20 @@ export async function POST(req: Request) {
     }
 
     order.status = "paid";
+    order.fulfillmentStatus = order.fulfillmentStatus || "processing";
     order.razorpayPaymentId = razorpayPaymentId;
     order.razorpaySignature = razorpaySignature;
+    if (!order.trackingTimeline?.length) {
+      order.trackingTimeline = [
+        {
+          status: "processing",
+          title: "Order Confirmed",
+          description: "Payment verified successfully. We are preparing your shipment.",
+          location: "CrazyAudios Warehouse",
+          createdAt: new Date(),
+        },
+      ];
+    }
     await order.save();
 
     return NextResponse.json({

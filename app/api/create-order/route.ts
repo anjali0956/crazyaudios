@@ -100,7 +100,7 @@ export async function POST(req: Request) {
     });
 
     const subtotal = items.reduce((sum, item) => sum + item.lineTotal, 0);
-    const totals = calculateTotals(subtotal);
+    const totals = calculateTotals(subtotal, shippingAddress);
 
     const amountInPaise = Math.round(totals.totalAmount * 100);
 

@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import axios from "axios";
-import { SHIPPING_FEE, SHIPPING_FREE_THRESHOLD, TAX_RATE, roundCurrency } from "@/lib/order-utils";
+import { TAX_RATE, calculateShippingFee, getTaxLabel, roundCurrency } from "@/lib/order-utils";
 
 type CartItem = {
   _id: string;
@@ -81,8 +81,12 @@ export default function CheckoutPage() {
     () => roundCurrency(cart.reduce((sum, item) => sum + item.price * item.quantity, 0)),
     [cart]
   );
-  const shippingFee =
-    subtotal > 0 && subtotal < SHIPPING_FREE_THRESHOLD ? SHIPPING_FEE : 0;
+  const shippingPreview = useMemo(
+    () => calculateShippingFee(subtotal, shipping),
+    [subtotal, shipping]
+  );
+  const taxLabel = useMemo(() => getTaxLabel(shipping), [shipping]);
+  const shippingFee = shippingPreview.shippingFee;
   const taxAmount = roundCurrency((subtotal * TAX_RATE) / 100);
   const grandTotal = roundCurrency(subtotal + shippingFee + taxAmount);
 
@@ -274,6 +278,12 @@ export default function CheckoutPage() {
               required
             />
 
+            <div className="rounded-lg border border-blue-100 bg-blue-50 px-4 py-3 text-sm text-blue-900">
+              Courier estimate from {shipping.city || "your city"}, {shipping.state || "your state"}:{" "}
+              <strong>{shippingFee === 0 ? "Free" : `₹${shippingFee}`}</strong>
+              <div className="mt-1 text-xs text-blue-700">{shippingPreview.shippingLabel}</div>
+            </div>
+
             <div className="mt-4 flex items-center gap-2">
               <input
                 type="checkbox"
@@ -380,8 +390,7 @@ export default function CheckoutPage() {
               <span>
                 {item.name} × {item.quantity}
               </span>
-
-              <span>₹{item.price * item.quantity}</span>
+              <span>₹{roundCurrency(item.price * item.quantity)}</span>
             </div>
           ))}
 
@@ -391,11 +400,17 @@ export default function CheckoutPage() {
               <span>₹{subtotal}</span>
             </div>
             <div className="flex justify-between">
-              <span>Courier</span>
+              <div>
+                <span>Courier</span>
+                <p className="text-xs text-gray-500">{shippingPreview.shippingLabel}</p>
+              </div>
               <span>{shippingFee === 0 ? "Free" : `₹${shippingFee}`}</span>
             </div>
             <div className="flex justify-between">
-              <span>Tax ({TAX_RATE}%)</span>
+              <div>
+                <span>Tax ({TAX_RATE}%)</span>
+                <p className="text-xs text-gray-500">{taxLabel}</p>
+              </div>
               <span>₹{taxAmount}</span>
             </div>
           </div>

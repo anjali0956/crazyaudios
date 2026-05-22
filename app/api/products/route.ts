@@ -41,11 +41,15 @@ export async function POST(req: Request) {
 
     const discountPercentage = Math.max(0, Math.min(95, Number(body.discountPercentage) || 0));
     const flashSale = Boolean(body.flashSale) && discountPercentage > 0;
+    const extraImages = Array.isArray(body.extraImages)
+      ? body.extraImages.map((value: unknown) => String(value || "").trim()).filter(Boolean)
+      : [];
 
     const newProduct = await Product.create({
       name: body.name,
       price: body.price,
       image: body.image,
+      extraImages,
       stock: body.stock,
       category: body.category?.toLowerCase().trim(),
       featured: Boolean(body.featured),
@@ -99,6 +103,7 @@ export async function PUT(req: Request) {
       name,
       price,
       image,
+      extraImages,
       stock,
       category,
       description,
@@ -117,6 +122,9 @@ export async function PUT(req: Request) {
         name,
         price,
         image,
+        extraImages: Array.isArray(extraImages)
+          ? extraImages.map((value: unknown) => String(value || "").trim()).filter(Boolean)
+          : [],
         stock,
         category: category.toLowerCase().trim(),
         description,

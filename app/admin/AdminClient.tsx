@@ -1,4 +1,5 @@
 "use client";
+
 import { useEffect, useState } from "react";
 import axios from "axios";
 
@@ -7,6 +8,7 @@ type Product = {
   name: string;
   price: number;
   image: string;
+  extraImages?: string[];
   stock: number;
   category: string;
   description?: string[];
@@ -34,16 +36,40 @@ type DailyTraffic = {
   visitors: number;
 };
 
+type Order = {
+  _id: string;
+  receipt: string;
+  customerName: string;
+  customerEmail: string;
+  totalAmount: number;
+  fulfillmentStatus?: string;
+  courierName?: string;
+  trackingNumber?: string;
+  estimatedDelivery?: string | null;
+};
+
+type OrderDraft = {
+  fulfillmentStatus: string;
+  courierName: string;
+  trackingNumber: string;
+  estimatedDelivery: string;
+  note: string;
+  location: string;
+};
+
 export default function AdminClient() {
   const [products, setProducts] = useState<Product[]>([]);
+  const [orders, setOrders] = useState<Order[]>([]);
   const [trafficSummary, setTrafficSummary] = useState<TrafficSummary | null>(null);
   const [topPages, setTopPages] = useState<TopPage[]>([]);
   const [recentDailyViews, setRecentDailyViews] = useState<DailyTraffic[]>([]);
   const [trafficLoading, setTrafficLoading] = useState(true);
+  const [ordersLoading, setOrdersLoading] = useState(true);
 
   const [name, setName] = useState("");
   const [price, setPrice] = useState("");
   const [image, setImage] = useState("");
+  const [extraImages, setExtraImages] = useState("");
   const [stock, setStock] = useState("");
   const [category, setCategory] = useState("");
   const [description, setDescription] = useState("");
@@ -57,6 +83,7 @@ export default function AdminClient() {
   const [homeBannerRight, setHomeBannerRight] = useState("/banners/crazyaudios-banner-right.svg");
 
   const [selectedCategoryFilter, setSelectedCategoryFilter] = useState("All");
+  const [orderStatusDrafts, setOrderStatusDrafts] = useState<Record<string, OrderDraft>>({});
 
   const fetchProducts = async () => {
     const res = await axios.get("/api/products");
@@ -67,6 +94,35 @@ export default function AdminClient() {
     const res = await axios.get("/api/settings");
     setHomeBannerLeft(res.data?.homepageBanners?.left || "/banners/crazyaudios-banner-left.svg");
     setHomeBannerRight(res.data?.homepageBanners?.right || "/banners/crazyaudios-banner-right.svg");
+  };
+
+  const fetchOrders = async () => {
+    try {
+      setOrdersLoading(true);
+      const res = await axios.get("/api/admin/orders");
+      const nextOrders = res.data || [];
+      setOrders(nextOrders);
+      setOrderStatusDrafts(
+        nextOrders.reduce((acc: Record<string, OrderDraft>, order: Order) => {
+          acc[order._id] = {
+            fulfillmentStatus: order.fulfillmentStatus || "processing",
+            courierName: order.courierName || "",
+            trackingNumber: order.trackingNumber || "",
+            estimatedDelivery: order.estimatedDelivery
+              ? new Date(order.estimatedDelivery).toISOString().split("T")[0]
+              : "",
+            note: "",
+            location: "",
+          };
+          return acc;
+        }, {})
+      );
+    } catch {
+      setOrders([]);
+      setOrderStatusDrafts({});
+    } finally {
+      setOrdersLoading(false);
+    }
   };
 
   const fetchTrafficAnalytics = async () => {
@@ -89,12 +145,50 @@ export default function AdminClient() {
     fetchProducts();
     fetchSettings();
     fetchTrafficAnalytics();
+    fetchOrders();
   }, []);
+
+  const updateOrderDraft = (orderId: string, field: keyof OrderDraft, value: string) => {
+    setOrderStatusDrafts((prev) => ({
+      ...prev,
+      [orderId]: {
+        fulfillmentStatus: prev[orderId]?.fulfillmentStatus || "processing",
+        courierName: prev[orderId]?.courierName || "",
+        trackingNumber: prev[orderId]?.trackingNumber || "",
+        estimatedDelivery: prev[orderId]?.estimatedDelivery || "",
+        note: prev[orderId]?.note || "",
+        location: prev[orderId]?.location || "",
+        [field]: value,
+      },
+    }));
+  };
+
+  const updateOrderTracking = async (orderId: string) => {
+    const draft = orderStatusDrafts[orderId];
+    if (!draft) return;
+
+    await axios.patch("/api/admin/orders", {
+      orderId,
+      fulfillmentStatus: draft.fulfillmentStatus,
+      courierName: draft.courierName,
+      trackingNumber: draft.trackingNumber,
+      estimatedDelivery: draft.estimatedDelivery,
+      note: draft.note,
+      location: draft.location,
+    });
+
+    await fetchOrders();
+    alert("Order tracking updated");
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
     const descArray = description
+      .split("\n")
+      .map((item) => item.trim())
+      .filter((item) => item !== "");
+    const extraImageArray = extraImages
       .split("\n")
       .map((item) => item.trim())
       .filter((item) => item !== "");
@@ -105,6 +199,7 @@ export default function AdminClient() {
         name,
         price: Number(price),
         image,
+        extraImages: extraImageArray,
         stock: Number(stock),
         category,
         description: descArray,
@@ -117,6 +212,7 @@ export default function AdminClient() {
         name,
         price: Number(price),
         image,
+        extraImages: extraImageArray,
         stock: Number(stock),
         category,
         description: descArray,
@@ -129,6 +225,7 @@ export default function AdminClient() {
     setName("");
     setPrice("");
     setImage("");
+    setExtraImages("");
     setStock("");
     setCategory("");
     setDescription("");
@@ -150,6 +247,7 @@ export default function AdminClient() {
     setName(product.name);
     setPrice(String(product.price));
     setImage(product.image);
+    setExtraImages(product.extraImages?.join("\n") || "");
     setStock(String(product.stock));
     setCategory(product.category);
     setDescription(product.description?.join("\n") || "");
@@ -201,14 +299,15 @@ export default function AdminClient() {
   };
 
   const uniqueCategories = ["All", ...Array.from(new Set(products.map((p) => p.category).filter(Boolean)))];
-  const filteredProducts = selectedCategoryFilter === "All"
-    ? products
-    : products.filter((p) => p.category === selectedCategoryFilter);
+  const filteredProducts =
+    selectedCategoryFilter === "All"
+      ? products
+      : products.filter((p) => p.category === selectedCategoryFilter);
   const maxDailyViews = Math.max(...recentDailyViews.map((day) => day.views), 1);
 
   return (
-    <main className="min-h-screen bg-gray-200 text-black p-10">
-      <h1 className="text-3xl font-bold mb-8">Admin Panel</h1>
+    <main className="min-h-screen bg-gray-200 p-10 text-black">
+      <h1 className="mb-8 text-3xl font-bold">Admin Panel</h1>
 
       <section className="mb-10 space-y-6">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
@@ -220,7 +319,7 @@ export default function AdminClient() {
           </div>
           <button
             onClick={fetchTrafficAnalytics}
-            className="rounded-lg bg-black px-4 py-2 text-white self-start"
+            className="self-start rounded-lg bg-black px-4 py-2 text-white"
           >
             Refresh Analytics
           </button>
@@ -308,8 +407,127 @@ export default function AdminClient() {
         </div>
       </section>
 
-      <div className="grid md:grid-cols-2 gap-10">
-        <form onSubmit={handleSubmit} className="bg-white p-6 rounded-xl shadow space-y-4">
+      <section className="mb-10 rounded-2xl bg-white p-6 shadow">
+        <div className="mb-5 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <h2 className="text-2xl font-bold">Order Tracking</h2>
+            <p className="text-sm text-gray-600">
+              Update live order progress so customers can see courier details, ETA, and timeline changes.
+            </p>
+          </div>
+          <button
+            onClick={fetchOrders}
+            className="self-start rounded-lg bg-black px-4 py-2 text-white"
+          >
+            Refresh Orders
+          </button>
+        </div>
+
+        {ordersLoading ? (
+          <p className="text-sm text-gray-500">Loading paid orders...</p>
+        ) : orders.length === 0 ? (
+          <p className="text-sm text-gray-500">No paid orders yet to track.</p>
+        ) : (
+          <div className="space-y-5">
+            {orders.map((order) => {
+              const draft = orderStatusDrafts[order._id] || {
+                fulfillmentStatus: "processing",
+                courierName: "",
+                trackingNumber: "",
+                estimatedDelivery: "",
+                note: "",
+                location: "",
+              };
+
+              return (
+                <div key={order._id} className="rounded-xl border border-gray-200 p-5">
+                  <div className="mb-4 flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+                    <div>
+                      <h3 className="text-lg font-semibold">{order.receipt}</h3>
+                      <p className="text-sm text-gray-600">
+                        {order.customerName} • {order.customerEmail}
+                      </p>
+                    </div>
+                    <p className="font-semibold text-gray-700">₹{order.totalAmount}</p>
+                  </div>
+
+                  <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+                    <select
+                      value={draft.fulfillmentStatus}
+                      onChange={(e) =>
+                        updateOrderDraft(order._id, "fulfillmentStatus", e.target.value)
+                      }
+                      className="rounded-lg border border-gray-300 p-3"
+                    >
+                      <option value="processing">Processing</option>
+                      <option value="packed">Packed</option>
+                      <option value="shipped">Shipped</option>
+                      <option value="out_for_delivery">Out for delivery</option>
+                      <option value="delivered">Delivered</option>
+                      <option value="cancelled">Cancelled</option>
+                    </select>
+
+                    <input
+                      value={draft.courierName}
+                      onChange={(e) =>
+                        updateOrderDraft(order._id, "courierName", e.target.value)
+                      }
+                      placeholder="Courier name"
+                      className="rounded-lg border border-gray-300 p-3"
+                    />
+
+                    <input
+                      value={draft.trackingNumber}
+                      onChange={(e) =>
+                        updateOrderDraft(order._id, "trackingNumber", e.target.value)
+                      }
+                      placeholder="Tracking number"
+                      className="rounded-lg border border-gray-300 p-3"
+                    />
+
+                    <input
+                      type="date"
+                      value={draft.estimatedDelivery}
+                      onChange={(e) =>
+                        updateOrderDraft(order._id, "estimatedDelivery", e.target.value)
+                      }
+                      className="rounded-lg border border-gray-300 p-3"
+                    />
+
+                    <input
+                      value={draft.location}
+                      onChange={(e) =>
+                        updateOrderDraft(order._id, "location", e.target.value)
+                      }
+                      placeholder="Current location"
+                      className="rounded-lg border border-gray-300 p-3"
+                    />
+
+                    <input
+                      value={draft.note}
+                      onChange={(e) => updateOrderDraft(order._id, "note", e.target.value)}
+                      placeholder="Customer-facing update note"
+                      className="rounded-lg border border-gray-300 p-3"
+                    />
+                  </div>
+
+                  <div className="mt-4">
+                    <button
+                      onClick={() => updateOrderTracking(order._id)}
+                      className="rounded-lg bg-blue-700 px-5 py-3 font-semibold text-white"
+                    >
+                      Save Tracking Update
+                    </button>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </section>
+
+      <div className="grid gap-10 md:grid-cols-2">
+        <form onSubmit={handleSubmit} className="space-y-4 rounded-xl bg-white p-6 shadow">
           <input
             placeholder="Product Name"
             className="w-full border p-2"
@@ -327,6 +545,13 @@ export default function AdminClient() {
             className="w-full border p-2"
             value={image}
             onChange={(e) => setImage(e.target.value)}
+          />
+          <textarea
+            placeholder="Extra Image URLs (one per line)"
+            className="w-full border p-2"
+            value={extraImages}
+            onChange={(e) => setExtraImages(e.target.value)}
+            rows={4}
           />
           <input
             placeholder="Stock"
@@ -369,19 +594,19 @@ export default function AdminClient() {
               max={95}
               value={discountPercentage}
               onChange={(e) => setDiscountPercentage(e.target.value)}
-              className="w-28 border p-2 rounded"
+              className="w-28 rounded border p-2"
               placeholder="Discount %"
             />
             <span>% off</span>
           </div>
 
-          <button className="w-full bg-black text-white py-2">
+          <button className="w-full bg-black py-2 text-white">
             {editingId ? "Update Product" : "Add Product"}
           </button>
         </form>
 
-        <div className="bg-white p-6 rounded-xl shadow space-y-3">
-          <h2 className="font-semibold mb-1">Homepage Banner Pair</h2>
+        <div className="space-y-3 rounded-xl bg-white p-6 shadow">
+          <h2 className="mb-1 font-semibold">Homepage Banner Pair</h2>
           <p className="text-sm text-gray-600">
             This dual banner appears after Featured Products and before the footer.
           </p>
@@ -399,86 +624,91 @@ export default function AdminClient() {
             placeholder="Right banner image URL"
           />
 
-          <button onClick={saveHomepageBanners} className="w-full bg-black text-white py-2">
+          <button onClick={saveHomepageBanners} className="w-full bg-black py-2 text-white">
             Save Homepage Banner
           </button>
         </div>
       </div>
 
       <div className="mt-10">
-        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between mb-4 gap-4">
+        <div className="mb-4 flex flex-col items-start justify-between gap-4 sm:flex-row sm:items-center">
           <h2 className="text-2xl font-bold">Products List ({filteredProducts.length})</h2>
           <div className="flex items-center gap-2">
             <label className="font-semibold text-gray-700">Filter by Category:</label>
             <select
               value={selectedCategoryFilter}
               onChange={(e) => setSelectedCategoryFilter(e.target.value)}
-              className="border p-2 rounded bg-white text-black capitalize shadow-sm"
+              className="rounded bg-white p-2 capitalize text-black shadow-sm"
             >
               {uniqueCategories.map((cat) => (
-                <option key={cat} value={cat}>{cat}</option>
+                <option key={cat} value={cat}>
+                  {cat}
+                </option>
               ))}
             </select>
           </div>
         </div>
         <div className="space-y-4">
           {filteredProducts.map((p) => (
-          <div key={p._id} className="bg-gray-800 text-white p-3 flex justify-between items-center">
-            <span>
-              {p.name}
-              {p.featured ? " - Featured" : ""}
-              {p.flashSale ? ` - Flash Sale ${p.discountPercentage || 0}%` : ""}
-            </span>
-            <div className="flex gap-2 items-center">
-              <label className="flex items-center gap-2 px-2 py-1 bg-gray-700 rounded text-sm">
+            <div
+              key={p._id}
+              className="flex items-center justify-between bg-gray-800 p-3 text-white"
+            >
+              <span>
+                {p.name}
+                {p.featured ? " - Featured" : ""}
+                {p.flashSale ? ` - Flash Sale ${p.discountPercentage || 0}%` : ""}
+              </span>
+              <div className="flex items-center gap-2">
+                <label className="flex items-center gap-2 rounded bg-gray-700 px-2 py-1 text-sm">
+                  <input
+                    type="checkbox"
+                    checked={Boolean(p.featured)}
+                    onChange={(e) => handleFeaturedToggle(p._id, e.target.checked)}
+                  />
+                  Featured
+                </label>
+                <label className="flex items-center gap-2 rounded bg-gray-700 px-2 py-1 text-sm">
+                  <input
+                    type="checkbox"
+                    checked={Boolean(p.flashSale)}
+                    onChange={(e) =>
+                      handleFlashSaleUpdate(
+                        p._id,
+                        e.target.checked,
+                        e.target.checked
+                          ? Number(p.discountPercentage || 10)
+                          : Number(p.discountPercentage || 0)
+                      )
+                    }
+                  />
+                  Flash Sale
+                </label>
                 <input
-                  type="checkbox"
-                  checked={Boolean(p.featured)}
-                  onChange={(e) => handleFeaturedToggle(p._id, e.target.checked)}
-                />
-                Featured
-              </label>
-              <label className="flex items-center gap-2 px-2 py-1 bg-gray-700 rounded text-sm">
-                <input
-                  type="checkbox"
-                  checked={Boolean(p.flashSale)}
-                  onChange={(e) =>
+                  type="number"
+                  min={0}
+                  max={95}
+                  defaultValue={p.discountPercentage || 0}
+                  onBlur={(e) =>
                     handleFlashSaleUpdate(
                       p._id,
-                      e.target.checked,
-                      e.target.checked
-                        ? Number(p.discountPercentage || 10)
-                        : Number(p.discountPercentage || 0)
+                      Boolean(p.flashSale),
+                      Number(e.target.value || 0)
                     )
                   }
+                  className="w-20 rounded px-2 py-1 text-black"
+                  title="Flash sale discount percentage"
                 />
-                Flash Sale
-              </label>
-              <input
-                type="number"
-                min={0}
-                max={95}
-                defaultValue={p.discountPercentage || 0}
-                onBlur={(e) =>
-                  handleFlashSaleUpdate(
-                    p._id,
-                    Boolean(p.flashSale),
-                    Number(e.target.value || 0)
-                  )
-                }
-                className="w-20 px-2 py-1 rounded text-black"
-                title="Flash sale discount percentage"
-              />
-              <span className="text-xs text-gray-200">%</span>
-              <button onClick={() => handleEdit(p)} className="bg-blue-500 px-2">
-                Edit
-              </button>
-              <button onClick={() => handleDelete(p._id)} className="bg-red-500 px-2">
-                Delete
-              </button>
+                <span className="text-xs text-gray-200">%</span>
+                <button onClick={() => handleEdit(p)} className="bg-blue-500 px-2">
+                  Edit
+                </button>
+                <button onClick={() => handleDelete(p._id)} className="bg-red-500 px-2">
+                  Delete
+                </button>
+              </div>
             </div>
-          </div>
-        ))}
+          ))}
         </div>
       </div>
     </main>

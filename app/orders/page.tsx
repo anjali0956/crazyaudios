@@ -5,6 +5,12 @@ import { authOptions } from "@/app/api/auth/[...nextauth]/route";
 import dbConnect from "@/lib/mongodb";
 import Order from "@/models/Order";
 
+function formatStatus(status: string) {
+  return status
+    .replaceAll("_", " ")
+    .replace(/\b\w/g, (char) => char.toUpperCase());
+}
+
 export default async function OrdersPage() {
   const session = await getServerSession(authOptions);
 
@@ -41,6 +47,19 @@ export default async function OrdersPage() {
                     <p className="mt-1 text-sm text-gray-600">
                       Paid on {new Date(order.createdAt).toLocaleString("en-IN")}
                     </p>
+                    <p className="mt-2 text-sm font-medium text-blue-700">
+                      Status: {formatStatus(order.fulfillmentStatus || "processing")}
+                    </p>
+                    {order.estimatedDelivery ? (
+                      <p className="mt-1 text-sm text-gray-600">
+                        Estimated delivery:{" "}
+                        {new Date(order.estimatedDelivery).toLocaleDateString("en-IN", {
+                          day: "2-digit",
+                          month: "short",
+                          year: "numeric",
+                        })}
+                      </p>
+                    ) : null}
                   </div>
                   <div className="text-left sm:text-right">
                     <p className="text-sm text-gray-500">Total Paid</p>
@@ -50,14 +69,25 @@ export default async function OrdersPage() {
 
                 <div className="mt-5 space-y-2 border-t pt-4">
                   {order.items.map((item: any) => (
-                    <div key={`${order._id}-${item.productId}`} className="flex justify-between gap-4 text-sm sm:text-base">
-                      <span>{item.name} × {item.quantity}</span>
+                    <div
+                      key={`${order._id}-${item.productId}`}
+                      className="flex justify-between gap-4 text-sm sm:text-base"
+                    >
+                      <span>
+                        {item.name} × {item.quantity}
+                      </span>
                       <span>₹{item.lineTotal}</span>
                     </div>
                   ))}
                 </div>
 
                 <div className="mt-5 flex flex-col gap-3 sm:flex-row">
+                  <Link
+                    href={`/track-your-order?receipt=${encodeURIComponent(order.receipt)}&email=${encodeURIComponent(order.customerEmail)}`}
+                    className="inline-flex items-center justify-center rounded-full bg-blue-700 px-6 py-3 font-semibold text-white"
+                  >
+                    Track Order
+                  </Link>
                   <a
                     href={`/api/orders/${order._id.toString()}/invoice`}
                     className="inline-flex items-center justify-center rounded-full bg-[#352f8f] px-6 py-3 font-semibold text-white"
