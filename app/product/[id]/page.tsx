@@ -216,8 +216,9 @@ export default function ProductDetails() {
 
           <div className="mb-6 flex items-center gap-4">
             <button
+              type="button"
               onClick={() => setQuantity((prev) => Math.max(1, prev - 1))}
-              className="min-h-11 rounded bg-gray-300 px-4 py-2 disabled:opacity-50"
+              className="min-h-11 touch-manipulation select-none rounded bg-gray-300 px-4 py-2 text-lg leading-none disabled:opacity-50"
               disabled={quantity === 1}
             >
               -
@@ -226,16 +227,19 @@ export default function ProductDetails() {
             <span className="text-lg font-semibold">{quantity}</span>
 
             <button
+              type="button"
               onClick={() => setQuantity((prev) => prev + 1)}
-              className="min-h-11 rounded bg-gray-300 px-4 py-2"
+              className="min-h-11 touch-manipulation select-none rounded bg-gray-300 px-4 py-2 text-lg leading-none"
             >
               +
             </button>
           </div>
 
           <button
+            type="button"
             onClick={addToCart}
-            className="mb-6 w-full rounded-lg bg-black px-6 py-3 text-white transition hover:bg-gray-800 sm:w-auto"
+            className="relative z-30 mb-6 inline-flex min-h-12 w-full touch-manipulation select-none items-center justify-center rounded-lg bg-black px-6 py-3 text-center text-base font-medium text-white transition hover:bg-gray-800 active:scale-[0.99] sm:w-auto"
+            style={{ WebkitTapHighlightColor: "transparent" }}
           >
             Add to Cart
           </button>

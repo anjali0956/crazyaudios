@@ -86,7 +86,14 @@ export async function POST(req: Request) {
         throw new Error(`Only ${product.stock} units left for ${product.name}`);
       }
 
-      const unitPrice = roundCurrency(Number(product.price));
+      const basePrice = roundCurrency(Number(product.price));
+      const hasFlashSale =
+        Boolean(product.flashSale) && Number(product.discountPercentage || 0) > 0;
+      const unitPrice = hasFlashSale
+        ? roundCurrency(
+            basePrice * (1 - Math.min(95, Math.max(0, Number(product.discountPercentage || 0))) / 100)
+          )
+        : basePrice;
       const lineTotal = roundCurrency(unitPrice * item.quantity);
 
       return {
@@ -94,6 +101,9 @@ export async function POST(req: Request) {
         name: product.name,
         image: product.image,
         unitPrice,
+        originalUnitPrice: basePrice,
+        flashSale: hasFlashSale,
+        discountPercentage: hasFlashSale ? Number(product.discountPercentage || 0) : 0,
         quantity: item.quantity,
         lineTotal,
       };
