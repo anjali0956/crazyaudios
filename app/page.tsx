@@ -182,7 +182,7 @@ export default function Home() {
           {filteredFeaturedProducts.map((product) => (
             <div key={product._id}>
               <Link href={`/product/${product._id}`}>
-                <div className="bg-blue-800 rounded-lg shadow p-3 hover:shadow-md h-full flex flex-col">
+                <div className="bg-white rounded-lg shadow p-3 hover:shadow-md h-full flex flex-col">
                   <div className="relative w-full h-36 sm:h-40">
                     <ProductImageWithEmblem
                       src={product.image}
@@ -193,15 +193,15 @@ export default function Home() {
                   </div>
 
                   <div className="flex flex-col flex-grow">
-                    <h3 className="mt-2 text-sm font-semibold line-clamp-2 min-h-[40px] text-white sm:text-base">{product.name}</h3>
+                    <h3 className="mt-2 text-sm font-semibold line-clamp-2 min-h-[40px] text-black sm:text-base">{product.name}</h3>
 
                     <div className="mb-1">
                       {product.stock !== undefined && product.stock === 0 ? (
-                        <span className="text-base font-bold text-red-300">Out of stock</span>
+                        <span className="text-base font-bold text-red-600">Out of stock</span>
                       ) : product.stock !== undefined && product.stock <= 5 ? (
-                        <span className="text-base font-bold text-orange-200">Quick! Few left</span>
+                        <span className="text-base font-bold text-orange-500">Quick! Few left</span>
                       ) : (
-                        <span className="text-base font-bold text-green-300">In stock</span>
+                        <span className="text-base font-bold text-green-600">In stock</span>
                       )}
                     </div>
 
@@ -215,10 +215,10 @@ export default function Home() {
                         <p className="text-sm font-semibold text-red-600">
                           Rs {Math.round(product.price * (1 - (product.discountPercentage || 0) / 100))}
                         </p>
-                        <p className="text-xs text-blue-100 line-through">Rs {product.price}</p>
+                        <p className="text-xs text-gray-500 line-through">Rs {product.price}</p>
                       </div>
                     ) : (
-                      <p className="text-sm text-blue-100">Rs {product.price}</p>
+                      <p className="text-sm text-gray-700">Rs {product.price}</p>
                     )}
 
                     <div className="mt-auto">
@@ -247,9 +247,9 @@ export default function Home() {
             <Link
               key={item.category}
               href={`/category/${encodeURIComponent(item.category)}`}
-              className="bg-blue-800 rounded-lg border border-blue-900 p-3 shadow-sm hover:shadow-md transition sm:p-4"
+              className="bg-white rounded-lg border border-gray-200 p-3 shadow-sm hover:shadow-md transition sm:p-4"
             >
-              <div className="relative w-full h-28 rounded-lg bg-blue-700 overflow-hidden sm:h-44">
+              <div className="relative w-full h-28 rounded-lg bg-gray-50 overflow-hidden sm:h-44">
                 <Image
                   src={item.image}
                   alt={formatCategoryName(item.category)}
@@ -257,7 +257,7 @@ export default function Home() {
                   className="object-contain p-3"
                 />
               </div>
-              <p className="mt-3 text-white text-base leading-6 font-semibold sm:mt-4 sm:text-2xl sm:leading-8">
+              <p className="mt-3 text-black text-base leading-6 font-semibold sm:mt-4 sm:text-2xl sm:leading-8">
                 {formatCategoryName(item.category)}
               </p>
             </Link>
