@@ -1,4 +1,3 @@
-export const SHIPPING_FREE_THRESHOLD = Number.POSITIVE_INFINITY;
 export const TAX_RATE = 18;
 export const SHIPPING_ORIGIN_CITY = "Irinjalakuda";
 export const SHIPPING_ORIGIN_STATE = "Kerala";
@@ -13,24 +12,9 @@ export type Address = {
   pincode: string;
 };
 
-type ShippingZone =
-  | "local_city"
-  | "kerala"
-  | "south_nearby"
-  | "west_central"
-  | "north_east"
-  | "remote";
+type ShippingZone = "live_rate";
 
 type TaxZone = "intra_state" | "inter_state";
-
-const SHIPPING_RATES: Record<ShippingZone, number> = {
-  local_city: 40,
-  kerala: 70,
-  south_nearby: 110,
-  west_central: 160,
-  north_east: 220,
-  remote: 280,
-};
 
 const STATE_ALIASES: Record<string, string> = {
   "andaman and nicobar": "andaman and nicobar islands",
@@ -45,53 +29,6 @@ const STATE_ALIASES: Record<string, string> = {
   "pondicherry": "puducherry",
   "uttaranchal": "uttarakhand",
 };
-
-const SOUTH_NEARBY_STATES = new Set([
-  "tamil nadu",
-  "karnataka",
-  "andhra pradesh",
-  "telangana",
-  "goa",
-  "lakshadweep",
-  "puducherry",
-]);
-
-const WEST_CENTRAL_STATES = new Set([
-  "maharashtra",
-  "gujarat",
-  "madhya pradesh",
-  "chhattisgarh",
-  "odisha",
-  "west bengal",
-  "jharkhand",
-  "bihar",
-]);
-
-const NORTH_EAST_STATES = new Set([
-  "uttar pradesh",
-  "uttarakhand",
-  "punjab",
-  "haryana",
-  "rajasthan",
-  "himachal pradesh",
-  "jammu and kashmir",
-  "ladakh",
-  "delhi",
-  "chandigarh",
-  "assam",
-  "arunachal pradesh",
-  "manipur",
-  "meghalaya",
-  "mizoram",
-  "nagaland",
-  "sikkim",
-  "tripura",
-]);
-
-const REMOTE_STATES = new Set([
-  "andaman and nicobar islands",
-  "ladakh",
-]);
 
 function normalizeText(value: string) {
   return value
@@ -140,57 +77,11 @@ export function normalizeCartItems(
 }
 
 export function getShippingZone(address?: Partial<Address> | null): ShippingZone {
-  const city = normalizeText(String(address?.city || ""));
-  const state = normalizeStateName(String(address?.state || ""));
-
-  if (!state) {
-    return "south_nearby";
-  }
-
-  if (city === normalizeText(SHIPPING_ORIGIN_CITY) && state === normalizeText(SHIPPING_ORIGIN_STATE)) {
-    return "local_city";
-  }
-
-  if (state === normalizeText(SHIPPING_ORIGIN_STATE)) {
-    return "kerala";
-  }
-
-  if (REMOTE_STATES.has(state)) {
-    return "remote";
-  }
-
-  if (SOUTH_NEARBY_STATES.has(state)) {
-    return "south_nearby";
-  }
-
-  if (WEST_CENTRAL_STATES.has(state)) {
-    return "west_central";
-  }
-
-  if (NORTH_EAST_STATES.has(state)) {
-    return "north_east";
-  }
-
-  return "west_central";
+  return "live_rate";
 }
 
 export function getShippingLabel(zone: ShippingZone) {
-  switch (zone) {
-    case "local_city":
-      return "Irinjalakuda local delivery";
-    case "kerala":
-      return "Kerala delivery";
-    case "south_nearby":
-      return "Nearby South India delivery";
-    case "west_central":
-      return "West/Central/East India delivery";
-    case "north_east":
-      return "North/North-East India delivery";
-    case "remote":
-      return "Remote location delivery";
-    default:
-      return "Standard delivery";
-  }
+  return "Live courier rate";
 }
 
 export function getTaxZone(address?: Partial<Address> | null): TaxZone {
@@ -203,37 +94,33 @@ export function getTaxLabel(address?: Partial<Address> | null) {
   return zone === "intra_state" ? "GST (CGST 9% + SGST 9%)" : "GST (IGST 18%)";
 }
 
-export function calculateShippingFee(subtotal: number, address?: Partial<Address> | null) {
-  const roundedSubtotal = roundCurrency(subtotal);
-
-  if (roundedSubtotal <= 0) {
-    return {
-      shippingFee: 0,
-      shippingZone: "south_nearby" as ShippingZone,
-      shippingLabel: "Standard delivery",
-    };
-  }
-
-  if (roundedSubtotal >= SHIPPING_FREE_THRESHOLD) {
-    const zone = getShippingZone(address);
-    return {
-      shippingFee: 0,
-      shippingZone: zone,
-      shippingLabel: `${getShippingLabel(zone)} (free shipping)`,
-    };
-  }
-
+export function calculateShippingFee(
+  subtotal: number,
+  address?: Partial<Address> | null,
+  shippingFeeOverride?: number | null,
+  shippingLabelOverride?: string | null
+) {
   const shippingZone = getShippingZone(address);
   return {
-    shippingFee: SHIPPING_RATES[shippingZone],
+    shippingFee: roundCurrency(Number(shippingFeeOverride) || 0),
     shippingZone,
-    shippingLabel: getShippingLabel(shippingZone),
+    shippingLabel: String(shippingLabelOverride || getShippingLabel(shippingZone)),
   };
 }
 
-export function calculateTotals(subtotal: number, address?: Partial<Address> | null) {
+export function calculateTotals(
+  subtotal: number,
+  address?: Partial<Address> | null,
+  shippingFeeOverride?: number | null,
+  shippingLabelOverride?: string | null
+) {
   const roundedSubtotal = roundCurrency(subtotal);
-  const shipping = calculateShippingFee(roundedSubtotal, address);
+  const shipping = calculateShippingFee(
+    roundedSubtotal,
+    address,
+    shippingFeeOverride,
+    shippingLabelOverride
+  );
   const taxAmount = roundCurrency((roundedSubtotal * TAX_RATE) / 100);
   const totalAmount = roundCurrency(roundedSubtotal + shipping.shippingFee + taxAmount);
 

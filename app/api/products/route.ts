@@ -52,6 +52,10 @@ export async function POST(req: Request) {
       extraImages,
       stock: body.stock,
       category: body.category?.toLowerCase().trim(),
+      weightGrams:
+        body.weightGrams === null || body.weightGrams === undefined || body.weightGrams === ""
+          ? null
+          : Number(body.weightGrams),
       featured: Boolean(body.featured),
       flashSale,
       discountPercentage: flashSale ? discountPercentage : 0,
@@ -106,6 +110,7 @@ export async function PUT(req: Request) {
       extraImages,
       stock,
       category,
+      weightGrams,
       description,
       featured,
       flashSale,
@@ -127,6 +132,10 @@ export async function PUT(req: Request) {
           : [],
         stock,
         category: category.toLowerCase().trim(),
+        weightGrams:
+          weightGrams === null || weightGrams === undefined || weightGrams === ""
+            ? null
+            : Number(weightGrams),
         description,
         featured: Boolean(featured),
         flashSale: normalizedFlashSale,

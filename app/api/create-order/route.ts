@@ -12,6 +12,7 @@ import {
   roundCurrency,
   validateAddress,
 } from "@/lib/order-utils";
+import { estimateShipmentWeightKg, fetchShippingQuote, SHIPPING_PICKUP_PINCODE } from "@/lib/shipping-rates";
 import Product from "@/models/Product";
 
 type IncomingCartItem = {
@@ -53,6 +54,7 @@ export async function POST(req: Request) {
     const cartItems = Array.isArray(body?.cartItems) ? (body.cartItems as IncomingCartItem[]) : [];
     const shippingAddress = body?.shippingAddress;
     const billingAddress = body?.billingAddress;
+    const selectedCourierCompanyId = Number(body?.selectedCourierCompanyId || 0) || undefined;
 
     if (!cartItems.length) {
       return NextResponse.json({ error: "Cart is empty" }, { status: 400 });
@@ -100,6 +102,10 @@ export async function POST(req: Request) {
         productId: product._id,
         name: product.name,
         image: product.image,
+        weightGrams:
+          product.weightGrams === null || product.weightGrams === undefined
+            ? null
+            : Number(product.weightGrams),
         unitPrice,
         originalUnitPrice: basePrice,
         flashSale: hasFlashSale,
@@ -110,7 +116,24 @@ export async function POST(req: Request) {
     });
 
     const subtotal = items.reduce((sum, item) => sum + item.lineTotal, 0);
-    const totals = calculateTotals(subtotal, shippingAddress);
+    const estimatedWeightKg = estimateShipmentWeightKg(
+      normalizedItems.map((item) => ({
+        quantity: item.quantity,
+        weightGrams: productMap.get(item.productId)?.weightGrams,
+      }))
+    );
+    const shippingQuote = await fetchShippingQuote({
+      pickupPostcode: SHIPPING_PICKUP_PINCODE,
+      deliveryPostcode: String(shippingAddress.pincode || "").trim(),
+      weightKg: estimatedWeightKg,
+      cod: false,
+    }, selectedCourierCompanyId);
+    const totals = calculateTotals(
+      subtotal,
+      shippingAddress,
+      shippingQuote.shippingFee,
+      shippingQuote.shippingLabel
+    );
 
     const amountInPaise = Math.round(totals.totalAmount * 100);
 
@@ -148,6 +171,8 @@ export async function POST(req: Request) {
       totalAmount: totals.totalAmount,
       currency: "INR",
       status: "created",
+      courierName: shippingQuote.courierName,
+      estimatedDelivery: shippingQuote.estimatedDeliveryDate,
       razorpayOrderId: razorpayOrder.id,
     });
 
@@ -159,6 +184,7 @@ export async function POST(req: Request) {
       currency: razorpayOrder.currency,
       receipt: razorpayOrder.receipt,
       totals,
+      shippingQuote,
     });
   } catch (error: any) {
     const message = error?.error?.description || error?.message || "Failed to create Razorpay order";

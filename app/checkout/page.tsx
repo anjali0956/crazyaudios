@@ -1,9 +1,9 @@
-"use client";
+﻿"use client";
 
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import axios from "axios";
-import { TAX_RATE, calculateShippingFee, getTaxLabel, roundCurrency } from "@/lib/order-utils";
+import { TAX_RATE, getTaxLabel, roundCurrency } from "@/lib/order-utils";
 
 type CartItem = {
   _id: string;
@@ -20,6 +20,25 @@ type AddressState = {
   city: string;
   state: string;
   pincode: string;
+};
+
+type ShippingQuote = {
+  courierCompanyId: number;
+  shippingFee: number;
+  shippingLabel: string;
+  courierName: string;
+  estimatedDeliveryText: string;
+  estimatedDeliveryDate: string | null;
+  weightKg: number;
+  availableCouriers?: Array<{
+    courier_company_id: number;
+    name: string;
+    rate: number;
+    estimated_delivery_days?: string;
+    etd?: string;
+    rating?: number;
+    cod_available?: boolean;
+  }>;
 };
 
 declare global {
@@ -65,6 +84,10 @@ export default function CheckoutPage() {
   const [shipping, setShipping] = useState<AddressState>(emptyAddress);
   const [billing, setBilling] = useState<AddressState>(emptyAddress);
   const [sameAsShipping, setSameAsShipping] = useState(false);
+  const [shippingQuote, setShippingQuote] = useState<ShippingQuote | null>(null);
+  const [shippingLoading, setShippingLoading] = useState(false);
+  const [shippingError, setShippingError] = useState("");
+  const [selectedCourierCompanyId, setSelectedCourierCompanyId] = useState<number | null>(null);
 
   useEffect(() => {
     const storedCart = JSON.parse(localStorage.getItem("cart") || "[]") as CartItem[];
@@ -81,14 +104,60 @@ export default function CheckoutPage() {
     () => roundCurrency(cart.reduce((sum, item) => sum + item.price * item.quantity, 0)),
     [cart]
   );
-  const shippingPreview = useMemo(
-    () => calculateShippingFee(subtotal, shipping),
-    [subtotal, shipping]
-  );
   const taxLabel = useMemo(() => getTaxLabel(shipping), [shipping]);
-  const shippingFee = shippingPreview.shippingFee;
+  const shippingFee = shippingQuote?.shippingFee || 0;
   const taxAmount = roundCurrency((subtotal * TAX_RATE) / 100);
   const grandTotal = roundCurrency(subtotal + shippingFee + taxAmount);
+
+  useEffect(() => {
+    const cleanPincode = String(shipping.pincode || "").replace(/\D/g, "");
+
+    if (!cart.length || subtotal <= 0 || cleanPincode.length !== 6) {
+      setShippingQuote(null);
+      setSelectedCourierCompanyId(null);
+      setShippingLoading(false);
+      setShippingError("");
+      return;
+    }
+
+    const controller = new AbortController();
+    const timer = window.setTimeout(async () => {
+      try {
+        setShippingLoading(true);
+        setShippingError("");
+
+        const res = await axios.post(
+          "/api/shipping-rate",
+          {
+            deliveryPostcode: cleanPincode,
+            cartItems: cart.map((item) => ({
+              productId: item._id,
+              quantity: item.quantity,
+            })),
+            cod: false,
+            selectedCourierCompanyId,
+          },
+          { signal: controller.signal }
+        );
+
+        setShippingQuote(res.data);
+        setSelectedCourierCompanyId(Number(res.data?.courierCompanyId || 0) || null);
+      } catch (error: any) {
+        if (axios.isCancel(error) || error?.name === "CanceledError") return;
+        setShippingQuote(null);
+        setShippingError(
+          error?.response?.data?.error || "Unable to fetch live courier rate right now"
+        );
+      } finally {
+        setShippingLoading(false);
+      }
+    }, 350);
+
+    return () => {
+      controller.abort();
+      window.clearTimeout(timer);
+    };
+  }, [cart, selectedCourierCompanyId, shipping.pincode, subtotal]);
 
   const handleSameAddress = (checked: boolean) => {
     setSameAsShipping(checked);
@@ -105,6 +174,11 @@ export default function CheckoutPage() {
 
     if (!cart.length) {
       setErrorMessage("Your cart is empty");
+      return;
+    }
+
+    if (!shippingQuote || !selectedCourierCompanyId) {
+      setErrorMessage("Please wait for courier options and select a shipping service");
       return;
     }
 
@@ -125,6 +199,7 @@ export default function CheckoutPage() {
         })),
         shippingAddress: shipping,
         billingAddress: sameAsShipping ? shipping : billing,
+        selectedCourierCompanyId,
       });
 
       const order = orderRes.data;
@@ -172,6 +247,7 @@ export default function CheckoutPage() {
           shipping_city: shipping.city,
           shipping_state: shipping.state,
           shipping_pincode: shipping.pincode,
+          courier_name: shippingQuote.courierName,
         },
         theme: {
           color: "#000000",
@@ -279,10 +355,70 @@ export default function CheckoutPage() {
             />
 
             <div className="rounded-lg border border-blue-100 bg-blue-50 px-4 py-3 text-sm text-blue-900">
-              Courier estimate from {shipping.city || "your city"}, {shipping.state || "your state"}:{" "}
-              <strong>{shippingFee === 0 ? "Free" : `₹${shippingFee}`}</strong>
-              <div className="mt-1 text-xs text-blue-700">{shippingPreview.shippingLabel}</div>
+              Courier charge to {shipping.city || "your city"}, {shipping.state || "your state"}:{" "}
+              <strong>{shippingLoading ? "Calculating..." : `Rs ${shippingFee}`}</strong>
+              <div className="mt-1 text-xs text-blue-700">
+                {shippingError
+                  ? shippingError
+                  : shippingQuote?.shippingLabel || "Enter a valid 6-digit pincode to fetch live courier rates"}
+              </div>
+              {shippingQuote?.courierName ? (
+                <div className="mt-1 text-xs text-blue-700">
+                  Selected courier: {shippingQuote.courierName}
+                  {shippingQuote.estimatedDeliveryText
+                    ? ` - ${shippingQuote.estimatedDeliveryText}`
+                    : ""}
+                </div>
+              ) : null}
             </div>
+
+            {shippingQuote?.availableCouriers?.length ? (
+              <div className="rounded-lg border border-gray-200 bg-white p-4">
+                <div className="mb-3">
+                  <h3 className="text-sm font-semibold text-gray-900">Choose shipping service</h3>
+                  <p className="text-xs text-gray-500">
+                    Pick the courier that matches your preferred estimated day of delivery.
+                  </p>
+                </div>
+                <div className="space-y-3">
+                  {shippingQuote.availableCouriers.map((courier) => {
+                    const isSelected =
+                      Number(selectedCourierCompanyId) === Number(courier.courier_company_id);
+                    return (
+                      <button
+                        key={courier.courier_company_id}
+                        type="button"
+                        onClick={() => setSelectedCourierCompanyId(courier.courier_company_id)}
+                        className={`w-full rounded-lg border px-4 py-3 text-left transition ${
+                          isSelected
+                            ? "border-blue-700 bg-blue-50 ring-2 ring-blue-100"
+                            : "border-gray-200 bg-gray-50 hover:border-gray-300"
+                        }`}
+                      >
+                        <div className="flex items-start justify-between gap-3">
+                          <div>
+                            <p className="font-semibold text-gray-900">{courier.name}</p>
+                            <p className="text-sm text-gray-600">
+                              {courier.etd
+                                ? `Estimated delivery: ${courier.etd}`
+                                : courier.estimated_delivery_days
+                                  ? `${courier.estimated_delivery_days} day delivery`
+                                  : "ETA unavailable"}
+                            </p>
+                          </div>
+                          <div className="text-right">
+                            <p className="font-semibold text-gray-900">Rs {courier.rate}</p>
+                            <p className="text-xs text-gray-500">
+                              {courier.rating ? `Rating ${courier.rating}` : "Prepaid"}
+                            </p>
+                          </div>
+                        </div>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            ) : null}
 
             <div className="mt-4 flex items-center gap-2">
               <input
@@ -371,7 +507,7 @@ export default function CheckoutPage() {
 
             <button
               type="submit"
-              disabled={isPaying}
+              disabled={isPaying || shippingLoading || !shippingQuote || !selectedCourierCompanyId}
               className="mt-6 w-full rounded-lg bg-black py-3 text-white disabled:cursor-not-allowed disabled:opacity-70"
             >
               {isPaying ? "Opening Razorpay..." : "Continue to Payment"}
@@ -388,36 +524,40 @@ export default function CheckoutPage() {
               className="flex justify-between gap-4 border-b py-2 text-sm sm:text-base"
             >
               <span>
-                {item.name} × {item.quantity}
+                {item.name} x {item.quantity}
               </span>
-              <span>₹{roundCurrency(item.price * item.quantity)}</span>
+              <span>Rs {roundCurrency(item.price * item.quantity)}</span>
             </div>
           ))}
 
           <div className="mt-4 space-y-2 text-sm sm:text-base">
             <div className="flex justify-between">
               <span>Subtotal</span>
-              <span>₹{subtotal}</span>
+              <span>Rs {subtotal}</span>
             </div>
             <div className="flex justify-between">
               <div>
                 <span>Courier</span>
-                <p className="text-xs text-gray-500">{shippingPreview.shippingLabel}</p>
+                <p className="text-xs text-gray-500">
+                  {shippingError
+                    ? shippingError
+                    : shippingQuote?.shippingLabel || "Live courier rate pending"}
+                </p>
               </div>
-              <span>{shippingFee === 0 ? "Free" : `₹${shippingFee}`}</span>
+              <span>{shippingLoading ? "..." : `Rs ${shippingFee}`}</span>
             </div>
             <div className="flex justify-between">
               <div>
                 <span>Tax ({TAX_RATE}%)</span>
                 <p className="text-xs text-gray-500">{taxLabel}</p>
               </div>
-              <span>₹{taxAmount}</span>
+              <span>Rs {taxAmount}</span>
             </div>
           </div>
 
           <div className="mt-4 flex justify-between border-t pt-4 text-lg font-semibold">
             <span>Total</span>
-            <span>₹{grandTotal}</span>
+            <span>Rs {grandTotal}</span>
           </div>
         </div>
       </div>

@@ -21,9 +21,17 @@ export default function ProductImageWithEmblem({
   className = "object-contain",
   emblemClassName = "",
 }: ProductImageWithEmblemProps) {
+  const normalizedSrc = String(src || "").trim();
+
   return (
     <>
-      <Image src={src} alt={alt} fill className={className} />
+      {normalizedSrc ? (
+        <Image src={normalizedSrc} alt={alt} fill className={className} />
+      ) : (
+        <div className="absolute inset-0 flex items-center justify-center rounded-lg bg-gray-100 text-center text-xs font-medium text-gray-400">
+          Image unavailable
+        </div>
+      )}
       <Image
         src={emblemSrc}
         alt={emblemAlt}

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { MouseEvent, useEffect, useMemo, useState } from "react";
 import axios from "axios";
 import Image from "next/image";
 import Link from "next/link";
@@ -41,8 +41,12 @@ export default function Home() {
 
     axios.get("/api/settings").then((res) => {
       setHomepageBanners({
-        left: res.data?.homepageBanners?.left || "/banners/crazyaudios-banner-left.svg",
-        right: res.data?.homepageBanners?.right || "/banners/crazyaudios-banner-right.svg",
+        left:
+          String(res.data?.homepageBanners?.left || "").trim() ||
+          "/banners/crazyaudios-banner-left.svg",
+        right:
+          String(res.data?.homepageBanners?.right || "").trim() ||
+          "/banners/crazyaudios-banner-right.svg",
       });
     });
   }, [setSelectedCategory]);
@@ -53,24 +57,43 @@ export default function Home() {
   );
 
   const categoryCards = useMemo(() => {
-    const seen = new Set<string>();
-    return products
-      .filter((product) => product.category)
-      .filter((product) => {
-        const key = product.category.toLowerCase().trim();
-        if (seen.has(key)) return false;
-        seen.add(key);
-        return true;
-      })
-      .map((product) => ({
-        category: product.category,
-        image: product.image,
-      }));
+    const categories = new Map<string, { category: string; image: string }>();
+
+    for (const product of products) {
+      const category = String(product.category || "").trim();
+      if (!category) continue;
+
+      const key = category.toLowerCase();
+      const normalizedImage = String(product.image || "").trim();
+      const existing = categories.get(key);
+
+      if (!existing) {
+        categories.set(key, {
+          category,
+          image: normalizedImage,
+        });
+        continue;
+      }
+
+      if (!existing.image && normalizedImage) {
+        categories.set(key, {
+          category: existing.category,
+          image: normalizedImage,
+        });
+      }
+    }
+
+    return Array.from(categories.values());
   }, [products]);
 
   const heroBanners = [
     { src: "/banners/peerless-store-audio.svg", link: "/category/speaker", className: "object-contain object-center" },
-    { src: "/banners/ca-certified-banner.svg", className: "object-contain object-center" },
+    {
+      src: "/banners/ca-certified-banner.svg",
+      className: "object-contain object-center",
+      buttonLabel: "Know More",
+      buttonHref: "/about-us",
+    },
     { src: "/banners/brainsaudios-banner.svg", link: "/category/tonecontrol", className: "object-contain object-center" },
     { src: "/banners/crazyaudios-flea-market-banner.svg", className: "object-contain object-center" },
   ];
@@ -103,6 +126,39 @@ export default function Home() {
     return matchesSearch && matchesPrice;
   });
 
+  const addToCartFromHomepage = (product: Product, event: MouseEvent<HTMLButtonElement>) => {
+    event.preventDefault();
+    event.stopPropagation();
+
+    const storedCart = JSON.parse(localStorage.getItem("cart") || "[]");
+    const finalPrice =
+      product.flashSale && (product.discountPercentage || 0) > 0
+        ? Math.round(product.price * (1 - (product.discountPercentage || 0) / 100))
+        : product.price;
+
+    const existingItem = storedCart.find((item: any) => item._id === product._id);
+
+    if (existingItem) {
+      existingItem.quantity = Math.max(1, Number(existingItem.quantity || 1)) + 1;
+      existingItem.price = finalPrice;
+      existingItem.originalPrice = product.price;
+      existingItem.flashSale = Boolean(product.flashSale);
+      existingItem.discountPercentage = product.discountPercentage || 0;
+    } else {
+      storedCart.push({
+        ...product,
+        price: finalPrice,
+        originalPrice: product.price,
+        flashSale: Boolean(product.flashSale),
+        discountPercentage: product.discountPercentage || 0,
+        quantity: 1,
+      });
+    }
+
+    localStorage.setItem("cart", JSON.stringify(storedCart));
+    alert("Added to cart!");
+  };
+
   return (
     <main className="min-h-screen bg-gray-100 text-black flex flex-col">
       <section className="w-full bg-gray-100 pb-4">
@@ -125,13 +181,23 @@ export default function Home() {
                       />
                     </Link>
                   ) : (
-                    <Image
-                      src={banner.src}
-                      alt={`Homepage banner ${index + 1}`}
-                      fill
-                    className={banner.className || "object-cover object-center"}
-                      priority={index === 0}
-                    />
+                    <div className="relative h-full w-full">
+                      <Image
+                        src={banner.src}
+                        alt={`Homepage banner ${index + 1}`}
+                        fill
+                        className={banner.className || "object-cover object-center"}
+                        priority={index === 0}
+                      />
+                      {banner.buttonHref && banner.buttonLabel ? (
+                        <Link
+                          href={banner.buttonHref}
+                          className="absolute bottom-3 right-4 z-10 inline-flex items-center rounded-full bg-black/85 px-3 py-1.5 text-xs font-semibold text-white shadow-md transition hover:bg-black sm:bottom-4 sm:right-6 sm:px-4 sm:py-2 sm:text-sm"
+                        >
+                          {banner.buttonLabel}
+                        </Link>
+                      ) : null}
+                    </div>
                   )}
                 </div>
               ))}
@@ -222,7 +288,11 @@ export default function Home() {
                     )}
 
                     <div className="mt-auto">
-                      <button className="w-full bg-black text-white py-2.5 text-sm rounded sm:py-2">
+                      <button
+                        type="button"
+                        onClick={(event) => addToCartFromHomepage(product, event)}
+                        className="w-full rounded bg-black py-2.5 text-sm text-white transition hover:bg-gray-800 sm:py-2"
+                      >
                         Add to Cart
                       </button>
                     </div>
@@ -250,12 +320,18 @@ export default function Home() {
               className="bg-white rounded-lg border border-gray-200 p-3 shadow-sm hover:shadow-md transition sm:p-4"
             >
               <div className="relative w-full h-28 rounded-lg bg-gray-50 overflow-hidden sm:h-44">
-                <Image
-                  src={item.image}
-                  alt={formatCategoryName(item.category)}
-                  fill
-                  className="object-contain p-3"
-                />
+                {item.image ? (
+                  <Image
+                    src={item.image}
+                    alt={formatCategoryName(item.category)}
+                    fill
+                    className="object-contain p-3"
+                  />
+                ) : (
+                  <div className="absolute inset-0 flex items-center justify-center px-3 text-center text-sm font-medium text-gray-400">
+                    Image unavailable
+                  </div>
+                )}
               </div>
               <p className="mt-3 text-black text-base leading-6 font-semibold sm:mt-4 sm:text-2xl sm:leading-8">
                 {formatCategoryName(item.category)}
