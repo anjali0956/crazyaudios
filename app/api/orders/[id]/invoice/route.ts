@@ -4,6 +4,7 @@ import { PDFDocument, StandardFonts, rgb } from "pdf-lib";
 import dbConnect from "@/lib/mongodb";
 import Order from "@/models/Order";
 import { authOptions } from "@/app/api/auth/[...nextauth]/route";
+import { getTaxableAmountFromInclusive, roundCurrency } from "@/lib/order-utils";
 
 export async function GET(
   _req: Request,
@@ -76,24 +77,30 @@ export async function GET(
     y -= 20;
     page.drawText("Product", { x: 50, y, size: 11, font: boldFont });
     page.drawText("Qty", { x: 355, y, size: 11, font: boldFont });
-    page.drawText("Unit Price", { x: 410, y, size: 11, font: boldFont });
-    page.drawText("Line Total", { x: 490, y, size: 11, font: boldFont });
+    page.drawText("Unit Price (incl. GST)", { x: 380, y, size: 11, font: boldFont });
+    page.drawText("Line Total", { x: 500, y, size: 11, font: boldFont });
     y -= 16;
 
     for (const item of order.items) {
       page.drawText(item.name.slice(0, 40), { x: 50, y, size: 10, font });
       page.drawText(String(item.quantity), { x: 360, y, size: 10, font });
-      page.drawText(`Rs ${item.unitPrice}`, { x: 410, y, size: 10, font });
-      page.drawText(`Rs ${item.lineTotal}`, { x: 490, y, size: 10, font });
+      page.drawText(`Rs ${item.unitPrice}`, { x: 395, y, size: 10, font });
+      page.drawText(`Rs ${item.lineTotal}`, { x: 500, y, size: 10, font });
       y -= 16;
     }
 
     y -= 20;
-    page.drawText(`Subtotal: Rs ${order.subtotal}`, { x: 390, y, size: 11, font });
+    const taxableAmount =
+      typeof order.taxableAmount === "number"
+        ? order.taxableAmount
+        : getTaxableAmountFromInclusive(order.subtotal, order.taxRate);
+    page.drawText(`Products Total (incl. GST): Rs ${order.subtotal}`, { x: 310, y, size: 11, font });
+    y -= 18;
+    page.drawText(`Product Value (before GST): Rs ${roundCurrency(taxableAmount)}`, { x: 310, y, size: 11, font });
+    y -= 18;
+    page.drawText(`Included GST (${order.taxRate}%): Rs ${order.taxAmount}`, { x: 310, y, size: 11, font });
     y -= 18;
     page.drawText(`Shipping: Rs ${order.shippingFee}`, { x: 390, y, size: 11, font });
-    y -= 18;
-    page.drawText(`Tax (${order.taxRate}%): Rs ${order.taxAmount}`, { x: 390, y, size: 11, font });
     y -= 18;
     page.drawText(`Total Paid: Rs ${order.totalAmount}`, { x: 390, y, size: 11, font: boldFont });
 

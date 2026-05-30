@@ -9,6 +9,7 @@ type CartItem = {
   name: string;
   price: number;
   quantity: number;
+  packSize?: number | null;
   image?: string;
   flashSale?: boolean;
   originalPrice?: number;
@@ -35,15 +36,21 @@ export default function CartPage() {
 
   const increaseQty = (id: string) => {
     const updatedCart = cart.map((item) =>
-      item._id === id ? { ...item, quantity: item.quantity + 1 } : item
+      item._id === id
+        ? { ...item, quantity: item.quantity + Math.max(1, Number(item.packSize) || 1) }
+        : item
     );
     updateCart(updatedCart);
   };
 
   const decreaseQty = (id: string) => {
     const updatedCart = cart.map((item) =>
-      item._id === id && item.quantity > 1
-        ? { ...item, quantity: item.quantity - 1 }
+      item._id === id && item.quantity > Math.max(1, Number(item.packSize) || 1)
+        ? {
+            ...item,
+            quantity:
+              item.quantity - Math.max(1, Number(item.packSize) || 1),
+          }
         : item
     );
     updateCart(updatedCart);
@@ -53,11 +60,19 @@ export default function CartPage() {
     const parsed = Number(value);
     if (!Number.isFinite(parsed)) return;
 
-    const safeQty = Math.max(1, Math.floor(parsed));
-    const updatedCart = cart.map((item) =>
-      item._id === id ? { ...item, quantity: safeQty } : item
-    );
+    const updatedCart = cart.map((item) => {
+      if (item._id !== id) return item;
+      const step = Math.max(1, Number(item.packSize) || 1);
+      const safeQty = Math.max(step, Math.ceil(Math.floor(parsed) / step) * step);
+      return { ...item, quantity: safeQty };
+    });
     updateCart(updatedCart);
+  };
+
+  const getPackNote = (item: CartItem) => {
+    const packSize = Math.max(0, Number(item.packSize) || 0);
+    if (packSize <= 1) return null;
+    return `Pack of ${packSize} only`;
   };
 
   const total = cart.reduce((sum, item) => sum + item.price * item.quantity, 0);
@@ -111,6 +126,9 @@ export default function CartPage() {
                     </div>
                     <div className="pr-2">
                       <p className="text-lg leading-7 text-gray-700">{item.name}</p>
+                      {getPackNote(item) ? (
+                        <p className="mt-1 text-sm font-medium text-orange-600">{getPackNote(item)}</p>
+                      ) : null}
                       {item.flashSale && (item.originalPrice || 0) > item.price && (
                         <p className="mt-1 text-sm text-red-600">Flash Sale Price Applied</p>
                       )}
@@ -134,7 +152,8 @@ export default function CartPage() {
                       </button>
                       <input
                         type="number"
-                        min={1}
+                        min={Math.max(1, Number(item.packSize) || 1)}
+                        step={Math.max(1, Number(item.packSize) || 1)}
                         value={item.quantity}
                         onChange={(e) => handleQtyInput(item._id, e.target.value)}
                         className="h-10 w-14 border-x border-gray-300 text-center outline-none"

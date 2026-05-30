@@ -9,6 +9,7 @@ export type CourierRate = {
   courier_company_id: number;
   name: string;
   rate: number;
+  base_rate?: number;
   freight_charge: number;
   cod_charges: number;
   other_charges: number;
@@ -30,6 +31,7 @@ export type ShippingRateResponse = {
 export type ShippingQuote = {
   courierCompanyId: number;
   shippingFee: number;
+  baseShippingFee: number;
   shippingLabel: string;
   courierName: string;
   estimatedDeliveryText: string;
@@ -43,15 +45,23 @@ const SHIPPING_RATE_API_URL =
 
 export const SHIPPING_PICKUP_PINCODE = process.env.KALLADA_PICKUP_PINCODE || "680121";
 
-const DEFAULT_WEIGHT_PER_UNSET_ITEM_KG = 0.35;
-
 function roundWeight(value: number) {
   return Math.round((value + Number.EPSILON) * 10) / 10;
 }
 
+function roundCurrency(value: number) {
+  return Math.round((value + Number.EPSILON) * 100) / 100;
+}
+
+function adjustCourierPrice(value: number) {
+  const rawRate = Number(value || 0);
+  const withBuffer = rawRate + 10;
+  return Math.ceil(withBuffer / 5) * 5;
+}
+
 export function estimateShipmentWeightKg(
   items: Array<{ quantity?: number; weightGrams?: number | null }>,
-  minimumWeightKg = 0.5
+  minimumWeightKg = 0.1
 ) {
   const totalWeightKg = items.reduce((sum, item) => {
     const quantity = Math.max(1, Math.floor(Number(item.quantity) || 1));
@@ -60,9 +70,14 @@ export function estimateShipmentWeightKg(
     if (Number.isFinite(weightGrams) && weightGrams > 0) {
       return sum + (weightGrams * quantity) / 1000;
     }
-
-    return sum + DEFAULT_WEIGHT_PER_UNSET_ITEM_KG * quantity;
+    return sum;
   }, 0);
+
+  if (totalWeightKg <= 0) {
+    throw new Error(
+      "Shipping weight is not configured for one or more products. Please update product weights in Admin."
+    );
+  }
 
   return roundWeight(Math.max(minimumWeightKg, totalWeightKg));
 }
@@ -86,9 +101,11 @@ function formatShippingLabel(courier: CourierRate) {
 }
 
 function normalizeCourierRate(courier: CourierRate) {
+  const baseRate = Number(courier.rate || 0);
   return {
     ...courier,
-    rate: Number(courier.rate || 0),
+    base_rate: roundCurrency(baseRate),
+    rate: adjustCourierPrice(baseRate),
     freight_charge: Number(courier.freight_charge || 0),
     cod_charges: Number(courier.cod_charges || 0),
     other_charges: Number(courier.other_charges || 0),
@@ -158,6 +175,7 @@ export async function fetchShippingQuote(
   return {
     courierCompanyId: bestCourier.courier_company_id,
     shippingFee: bestCourier.rate,
+    baseShippingFee: bestCourier.base_rate || bestCourier.rate,
     shippingLabel: formatShippingLabel(bestCourier),
     courierName: bestCourier.name,
     estimatedDeliveryText:

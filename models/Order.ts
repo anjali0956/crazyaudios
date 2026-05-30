@@ -48,6 +48,7 @@ const OrderSchema = new mongoose.Schema(
     billingAddress: { type: AddressSchema, required: true },
     items: { type: [OrderItemSchema], default: [] },
     subtotal: { type: Number, required: true },
+    taxableAmount: { type: Number, required: true },
     shippingFee: { type: Number, required: true },
     taxRate: { type: Number, required: true },
     taxAmount: { type: Number, required: true },

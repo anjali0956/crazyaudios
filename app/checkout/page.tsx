@@ -3,7 +3,13 @@
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import axios from "axios";
-import { TAX_RATE, getTaxLabel, roundCurrency } from "@/lib/order-utils";
+import {
+  TAX_RATE,
+  extractInclusiveTaxAmount,
+  getTaxLabel,
+  getTaxableAmountFromInclusive,
+  roundCurrency,
+} from "@/lib/order-utils";
 
 type CartItem = {
   _id: string;
@@ -25,6 +31,7 @@ type AddressState = {
 type ShippingQuote = {
   courierCompanyId: number;
   shippingFee: number;
+  baseShippingFee: number;
   shippingLabel: string;
   courierName: string;
   estimatedDeliveryText: string;
@@ -34,6 +41,7 @@ type ShippingQuote = {
     courier_company_id: number;
     name: string;
     rate: number;
+    base_rate?: number;
     estimated_delivery_days?: string;
     etd?: string;
     rating?: number;
@@ -106,8 +114,9 @@ export default function CheckoutPage() {
   );
   const taxLabel = useMemo(() => getTaxLabel(shipping), [shipping]);
   const shippingFee = shippingQuote?.shippingFee || 0;
-  const taxAmount = roundCurrency((subtotal * TAX_RATE) / 100);
-  const grandTotal = roundCurrency(subtotal + shippingFee + taxAmount);
+  const taxAmount = extractInclusiveTaxAmount(subtotal, TAX_RATE);
+  const taxableAmount = getTaxableAmountFromInclusive(subtotal, TAX_RATE);
+  const grandTotal = roundCurrency(subtotal + shippingFee);
 
   useEffect(() => {
     const cleanPincode = String(shipping.pincode || "").replace(/\D/g, "");
@@ -362,6 +371,12 @@ export default function CheckoutPage() {
                   ? shippingError
                   : shippingQuote?.shippingLabel || "Enter a valid 6-digit pincode to fetch live courier rates"}
               </div>
+              {shippingQuote && !shippingError ? (
+                <div className="mt-1 text-xs text-blue-700">
+                  Base courier {`Rs ${shippingQuote.baseShippingFee}`} + handling uplift ={" "}
+                  <strong>{`Rs ${shippingQuote.shippingFee}`}</strong>
+                </div>
+              ) : null}
               {shippingQuote?.courierName ? (
                 <div className="mt-1 text-xs text-blue-700">
                   Selected courier: {shippingQuote.courierName}
@@ -408,6 +423,9 @@ export default function CheckoutPage() {
                           </div>
                           <div className="text-right">
                             <p className="font-semibold text-gray-900">Rs {courier.rate}</p>
+                            {courier.base_rate ? (
+                              <p className="text-xs text-gray-500">Base Rs {courier.base_rate}</p>
+                            ) : null}
                             <p className="text-xs text-gray-500">
                               {courier.rating ? `Rating ${courier.rating}` : "Prepaid"}
                             </p>
@@ -532,8 +550,14 @@ export default function CheckoutPage() {
 
           <div className="mt-4 space-y-2 text-sm sm:text-base">
             <div className="flex justify-between">
-              <span>Subtotal</span>
+              <span>Products Total (incl. GST)</span>
               <span>Rs {subtotal}</span>
+            </div>
+            <div className="flex justify-between">
+              <div>
+                <span>Product Value (before GST)</span>
+              </div>
+              <span>Rs {taxableAmount}</span>
             </div>
             <div className="flex justify-between">
               <div>
@@ -548,7 +572,7 @@ export default function CheckoutPage() {
             </div>
             <div className="flex justify-between">
               <div>
-                <span>Tax ({TAX_RATE}%)</span>
+                <span>GST Included ({TAX_RATE}%)</span>
                 <p className="text-xs text-gray-500">{taxLabel}</p>
               </div>
               <span>Rs {taxAmount}</span>

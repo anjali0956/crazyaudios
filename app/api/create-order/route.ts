@@ -8,6 +8,7 @@ import {
   buildInvoiceNumber,
   buildReceipt,
   calculateTotals,
+  getDisplayPrice,
   normalizeCartItems,
   roundCurrency,
   validateAddress,
@@ -91,11 +92,12 @@ export async function POST(req: Request) {
       const basePrice = roundCurrency(Number(product.price));
       const hasFlashSale =
         Boolean(product.flashSale) && Number(product.discountPercentage || 0) > 0;
-      const unitPrice = hasFlashSale
-        ? roundCurrency(
-            basePrice * (1 - Math.min(95, Math.max(0, Number(product.discountPercentage || 0))) / 100)
-          )
-        : basePrice;
+      const { inclusiveFinalPrice, inclusiveBasePrice } = getDisplayPrice(
+        basePrice,
+        Number(product.discountPercentage || 0),
+        hasFlashSale
+      );
+      const unitPrice = inclusiveFinalPrice;
       const lineTotal = roundCurrency(unitPrice * item.quantity);
 
       return {
@@ -107,7 +109,7 @@ export async function POST(req: Request) {
             ? null
             : Number(product.weightGrams),
         unitPrice,
-        originalUnitPrice: basePrice,
+        originalUnitPrice: inclusiveBasePrice,
         flashSale: hasFlashSale,
         discountPercentage: hasFlashSale ? Number(product.discountPercentage || 0) : 0,
         quantity: item.quantity,
@@ -165,6 +167,7 @@ export async function POST(req: Request) {
       billingAddress,
       items,
       subtotal: totals.subtotal,
+      taxableAmount: totals.taxableAmount,
       shippingFee: totals.shippingFee,
       taxRate: totals.taxRate,
       taxAmount: totals.taxAmount,
@@ -188,7 +191,11 @@ export async function POST(req: Request) {
     });
   } catch (error: any) {
     const message = error?.error?.description || error?.message || "Failed to create Razorpay order";
-    const status = /auth|key|credential/i.test(message) ? 401 : 500;
+    const status = /auth|key|credential/i.test(message)
+      ? 401
+      : /shipping weight is not configured/i.test(message)
+        ? 400
+        : 500;
 
     return NextResponse.json({ error: message }, { status });
   }

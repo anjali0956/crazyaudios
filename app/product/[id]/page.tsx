@@ -5,6 +5,7 @@ import axios from "axios";
 import Image from "next/image";
 import { useParams } from "next/navigation";
 import ProductImageWithEmblem from "@/app/components/ProductImageWithEmblem";
+import { getDisplayPrice } from "@/lib/order-utils";
 
 type Product = {
   _id: string;
@@ -13,6 +14,7 @@ type Product = {
   image: string;
   extraImages?: string[];
   description?: string[];
+  packSize?: number | null;
   flashSale?: boolean;
   discountPercentage?: number;
   stock?: number;
@@ -39,6 +41,11 @@ export default function ProductDetails() {
       });
   }, [id]);
 
+  useEffect(() => {
+    if (!product) return;
+    setQuantity(Math.max(1, Number(product.packSize) || 1));
+  }, [product]);
+
   const galleryImages = useMemo(() => {
     if (!product) return [];
 
@@ -53,11 +60,27 @@ export default function ProductDetails() {
 
   const finalPrice = useMemo(() => {
     if (!product) return 0;
-    if (!product.flashSale || (product.discountPercentage || 0) <= 0) return product.price;
-    return Math.round(product.price * (1 - (product.discountPercentage || 0) / 100));
+    return getDisplayPrice(
+      product.price,
+      product.discountPercentage || 0,
+      Boolean(product.flashSale)
+    ).inclusiveFinalPrice;
+  }, [product]);
+
+  const originalDisplayPrice = useMemo(() => {
+    if (!product) return 0;
+    return getDisplayPrice(product.price).inclusiveBasePrice;
   }, [product]);
 
   const activeImage = galleryImages[currentImageIndex] || product?.image || "";
+  const packSize = Math.max(0, Number(product?.packSize) || 0);
+  const quantityStep = Math.max(1, packSize || 1);
+  const activeDisplayPrice =
+    product?.flashSale && (product.discountPercentage || 0) > 0
+      ? finalPrice
+      : originalDisplayPrice;
+  const packDisplayPrice =
+    packSize > 1 ? Number((activeDisplayPrice * packSize).toFixed(2)) : null;
 
   const addToCart = () => {
     if (!product) return;
@@ -68,14 +91,15 @@ export default function ProductDetails() {
     if (existingItem) {
       existingItem.quantity += quantity;
       existingItem.price = finalPrice;
-      existingItem.originalPrice = product.price;
+      existingItem.originalPrice = originalDisplayPrice;
       existingItem.flashSale = Boolean(product.flashSale);
       existingItem.discountPercentage = product.discountPercentage || 0;
+      existingItem.packSize = product.packSize || null;
     } else {
       existingCart.push({
         ...product,
         price: finalPrice,
-        originalPrice: product.price,
+        originalPrice: originalDisplayPrice,
         flashSale: Boolean(product.flashSale),
         discountPercentage: product.discountPercentage || 0,
         quantity,
@@ -202,11 +226,17 @@ export default function ProductDetails() {
           {product.flashSale && (product.discountPercentage || 0) > 0 ? (
             <div className="mb-4 flex items-center gap-3">
               <p className="text-2xl font-bold text-red-600 sm:text-3xl">Rs {finalPrice}</p>
-              <p className="text-lg text-gray-500 line-through sm:text-xl">Rs {product.price}</p>
+              <p className="text-lg text-gray-500 line-through sm:text-xl">Rs {originalDisplayPrice}</p>
             </div>
           ) : (
-            <p className="mb-4 text-xl text-black sm:text-2xl">Rs {product.price}</p>
+            <p className="mb-1 text-xl text-black sm:text-2xl">Rs {originalDisplayPrice}</p>
           )}
+          <p className="mb-4 text-xs text-gray-500">Inclusive of GST</p>
+          {packSize > 1 ? (
+            <p className="mb-4 text-sm font-medium text-orange-600">
+              Pack of {packSize} only • Rs {packDisplayPrice} per pack
+            </p>
+          ) : null}
 
           <ul className="mb-6 list-disc space-y-2 pl-5 text-black">
             {product.description?.map((item: string, index: number) => (
@@ -217,9 +247,9 @@ export default function ProductDetails() {
           <div className="mb-6 flex items-center gap-4">
             <button
               type="button"
-              onClick={() => setQuantity((prev) => Math.max(1, prev - 1))}
+              onClick={() => setQuantity((prev) => Math.max(quantityStep, prev - quantityStep))}
               className="min-h-11 touch-manipulation select-none rounded bg-gray-300 px-4 py-2 text-lg leading-none disabled:opacity-50"
-              disabled={quantity === 1}
+              disabled={quantity === quantityStep}
             >
               -
             </button>
@@ -228,7 +258,7 @@ export default function ProductDetails() {
 
             <button
               type="button"
-              onClick={() => setQuantity((prev) => prev + 1)}
+              onClick={() => setQuantity((prev) => prev + quantityStep)}
               className="min-h-11 touch-manipulation select-none rounded bg-gray-300 px-4 py-2 text-lg leading-none"
             >
               +

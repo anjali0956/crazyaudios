@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import axios from "axios";
 
 type Product = {
@@ -11,6 +11,7 @@ type Product = {
   extraImages?: string[];
   stock: number;
   category: string;
+  weightGrams?: number | null;
   description?: string[];
   featured?: boolean;
   flashSale?: boolean;
@@ -72,6 +73,7 @@ export default function AdminClient() {
   const [extraImages, setExtraImages] = useState("");
   const [stock, setStock] = useState("");
   const [category, setCategory] = useState("");
+  const [weightGrams, setWeightGrams] = useState("");
   const [description, setDescription] = useState("");
   const [featured, setFeatured] = useState(false);
   const [flashSale, setFlashSale] = useState(false);
@@ -83,7 +85,9 @@ export default function AdminClient() {
   const [homeBannerRight, setHomeBannerRight] = useState("/banners/crazyaudios-banner-right.svg");
 
   const [selectedCategoryFilter, setSelectedCategoryFilter] = useState("All");
+  const [productSearch, setProductSearch] = useState("");
   const [orderStatusDrafts, setOrderStatusDrafts] = useState<Record<string, OrderDraft>>({});
+  const productFormRef = useRef<HTMLFormElement | null>(null);
 
   const fetchProducts = async () => {
     const res = await axios.get("/api/products");
@@ -148,6 +152,21 @@ export default function AdminClient() {
     fetchOrders();
   }, []);
 
+  const resetProductForm = () => {
+    setName("");
+    setPrice("");
+    setImage("");
+    setExtraImages("");
+    setStock("");
+    setCategory("");
+    setWeightGrams("");
+    setDescription("");
+    setFeatured(false);
+    setFlashSale(false);
+    setDiscountPercentage("0");
+    setEditingId(null);
+  };
+
   const updateOrderDraft = (orderId: string, field: keyof OrderDraft, value: string) => {
     setOrderStatusDrafts((prev) => ({
       ...prev,
@@ -202,6 +221,7 @@ export default function AdminClient() {
         extraImages: extraImageArray,
         stock: Number(stock),
         category,
+        weightGrams: weightGrams.trim() === "" ? null : Number(weightGrams),
         description: descArray,
         featured,
         flashSale,
@@ -215,6 +235,7 @@ export default function AdminClient() {
         extraImages: extraImageArray,
         stock: Number(stock),
         category,
+        weightGrams: weightGrams.trim() === "" ? null : Number(weightGrams),
         description: descArray,
         featured,
         flashSale,
@@ -222,17 +243,7 @@ export default function AdminClient() {
       });
     }
 
-    setName("");
-    setPrice("");
-    setImage("");
-    setExtraImages("");
-    setStock("");
-    setCategory("");
-    setDescription("");
-    setFeatured(false);
-    setFlashSale(false);
-    setDiscountPercentage("0");
-    setEditingId(null);
+    resetProductForm();
 
     fetchProducts();
   };
@@ -250,12 +261,21 @@ export default function AdminClient() {
     setExtraImages(product.extraImages?.join("\n") || "");
     setStock(String(product.stock));
     setCategory(product.category);
+    setWeightGrams(
+      product.weightGrams === null || product.weightGrams === undefined
+        ? ""
+        : String(product.weightGrams)
+    );
     setDescription(product.description?.join("\n") || "");
     setFeatured(Boolean(product.featured));
     setFlashSale(Boolean(product.flashSale));
     setDiscountPercentage(String(product.discountPercentage || 0));
-
-    window.scrollTo({ top: 0, behavior: "smooth" });
+    requestAnimationFrame(() => {
+      productFormRef.current?.scrollIntoView({
+        behavior: "smooth",
+        block: "start",
+      });
+    });
   };
 
   const handleFeaturedToggle = async (id: string, isFeatured: boolean) => {
@@ -299,10 +319,14 @@ export default function AdminClient() {
   };
 
   const uniqueCategories = ["All", ...Array.from(new Set(products.map((p) => p.category).filter(Boolean)))];
-  const filteredProducts =
-    selectedCategoryFilter === "All"
-      ? products
-      : products.filter((p) => p.category === selectedCategoryFilter);
+  const filteredProducts = products.filter((p) => {
+    const matchesCategory =
+      selectedCategoryFilter === "All" || p.category === selectedCategoryFilter;
+    const matchesSearch = p.name
+      .toLowerCase()
+      .includes(productSearch.toLowerCase().trim());
+    return matchesCategory && matchesSearch;
+  });
   const maxDailyViews = Math.max(...recentDailyViews.map((day) => day.views), 1);
 
   return (
@@ -527,7 +551,32 @@ export default function AdminClient() {
       </section>
 
       <div className="grid gap-10 md:grid-cols-2">
-        <form onSubmit={handleSubmit} className="space-y-4 rounded-xl bg-white p-6 shadow">
+        <form
+          ref={productFormRef}
+          onSubmit={handleSubmit}
+          className="space-y-4 rounded-xl bg-white p-6 shadow"
+        >
+          <div className="flex flex-col gap-3 border-b border-gray-200 pb-4 sm:flex-row sm:items-start sm:justify-between">
+            <div>
+              <h2 className="text-2xl font-bold">
+                {editingId ? "Edit Product" : "Add Product"}
+              </h2>
+              <p className="text-sm text-gray-600">
+                {editingId
+                  ? `Editing: ${name || "Selected product"}`
+                  : "Create a new product and save it to the store catalog."}
+              </p>
+            </div>
+            {editingId && (
+              <button
+                type="button"
+                onClick={resetProductForm}
+                className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 transition hover:bg-gray-100"
+              >
+                Cancel Edit
+              </button>
+            )}
+          </div>
           <input
             placeholder="Product Name"
             className="w-full border p-2"
@@ -564,6 +613,15 @@ export default function AdminClient() {
             className="w-full border p-2"
             value={category}
             onChange={(e) => setCategory(e.target.value)}
+          />
+          <input
+            placeholder="Weight (grams)"
+            className="w-full border p-2"
+            type="number"
+            min="0"
+            step="0.01"
+            value={weightGrams}
+            onChange={(e) => setWeightGrams(e.target.value)}
           />
           <textarea
             placeholder="Description"
@@ -630,10 +688,18 @@ export default function AdminClient() {
         </div>
       </div>
 
-      <div className="mt-10">
+        <div className="mt-10">
         <div className="mb-4 flex flex-col items-start justify-between gap-4 sm:flex-row sm:items-center">
           <h2 className="text-2xl font-bold">Products List ({filteredProducts.length})</h2>
-          <div className="flex items-center gap-2">
+          <div className="flex w-full flex-col gap-3 sm:w-auto sm:flex-row sm:items-center">
+            <input
+              type="text"
+              value={productSearch}
+              onChange={(e) => setProductSearch(e.target.value)}
+              placeholder="Search products..."
+              className="w-full rounded bg-white p-2 text-black shadow-sm sm:w-72"
+            />
+            <div className="flex items-center gap-2">
             <label className="font-semibold text-gray-700">Filter by Category:</label>
             <select
               value={selectedCategoryFilter}
@@ -646,6 +712,7 @@ export default function AdminClient() {
                 </option>
               ))}
             </select>
+            </div>
           </div>
         </div>
         <div className="space-y-4">
@@ -658,6 +725,7 @@ export default function AdminClient() {
                 {p.name}
                 {p.featured ? " - Featured" : ""}
                 {p.flashSale ? ` - Flash Sale ${p.discountPercentage || 0}%` : ""}
+                {p.weightGrams ? ` - ${p.weightGrams}g` : " - No weight set"}
               </span>
               <div className="flex items-center gap-2">
                 <label className="flex items-center gap-2 rounded bg-gray-700 px-2 py-1 text-sm">

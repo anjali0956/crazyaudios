@@ -30,6 +30,27 @@ export default function AboutUsPage() {
           projects instead of turning the store into a giant parts maze.
         </p>
       </section>
+
+      <section>
+        <h2 className="text-xl font-semibold text-gray-900">What CA Certified Means</h2>
+        <p className="mt-2">
+          When a product carries the CA Certified mark, it means CrazyAudios has treated it as a
+          more trusted listing in the catalog. We use that label for products we are more
+          comfortable recommending based on source confidence, consistency, and overall suitability
+          for real customer builds.
+        </p>
+        <p className="mt-2">
+          CA Certified does not mean the product is made by CrazyAudios, but it does mean we want
+          customers to feel a stronger sense of reliability around it. In practical terms, it
+          stands for trustworthy sourcing, better confidence in authenticity, and a stronger level
+          of assurance when you are choosing parts for audio projects.
+        </p>
+        <p className="mt-2">
+          We use it as a signal that the listing deserves extra confidence, especially for buyers
+          who want dependable parts, cleaner purchasing decisions, and less guesswork before
+          checkout.
+        </p>
+      </section>
     </InfoPageShell>
   );
 }

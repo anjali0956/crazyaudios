@@ -16,6 +16,7 @@ const ProductSchema = new mongoose.Schema(
     stock: { type: Number, required: true },
     category: { type: String, required: true },
     weightGrams: { type: Number, default: null },
+    packSize: { type: Number, default: null },
     featured: { type: Boolean, default: false },
     flashSale: { type: Boolean, default: false },
     discountPercentage: { type: Number, default: 0 },

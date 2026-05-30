@@ -47,6 +47,32 @@ export function roundCurrency(value: number) {
   return Math.round((value + Number.EPSILON) * 100) / 100;
 }
 
+export function getInclusivePrice(basePrice: number, taxRate = TAX_RATE) {
+  return roundCurrency(basePrice * (1 + taxRate / 100));
+}
+
+export function extractInclusiveTaxAmount(inclusivePrice: number, taxRate = TAX_RATE) {
+  return roundCurrency((inclusivePrice * taxRate) / (100 + taxRate));
+}
+
+export function getTaxableAmountFromInclusive(inclusivePrice: number, taxRate = TAX_RATE) {
+  return roundCurrency(inclusivePrice - extractInclusiveTaxAmount(inclusivePrice, taxRate));
+}
+
+export function getDisplayPrice(basePrice: number, discountPercentage = 0, flashSale = false) {
+  const normalizedDiscount = Math.max(0, Math.min(95, Number(discountPercentage) || 0));
+  const inclusiveBasePrice = getInclusivePrice(Number(basePrice) || 0);
+  const inclusiveFinalPrice =
+    flashSale && normalizedDiscount > 0
+      ? roundCurrency(inclusiveBasePrice * (1 - normalizedDiscount / 100))
+      : inclusiveBasePrice;
+
+  return {
+    inclusiveBasePrice,
+    inclusiveFinalPrice,
+  };
+}
+
 export function validateAddress(address: Address) {
   const fields: Array<keyof Address> = [
     "name",
@@ -121,11 +147,13 @@ export function calculateTotals(
     shippingFeeOverride,
     shippingLabelOverride
   );
-  const taxAmount = roundCurrency((roundedSubtotal * TAX_RATE) / 100);
-  const totalAmount = roundCurrency(roundedSubtotal + shipping.shippingFee + taxAmount);
+  const taxAmount = extractInclusiveTaxAmount(roundedSubtotal, TAX_RATE);
+  const taxableAmount = getTaxableAmountFromInclusive(roundedSubtotal, TAX_RATE);
+  const totalAmount = roundCurrency(roundedSubtotal + shipping.shippingFee);
 
   return {
     subtotal: roundedSubtotal,
+    taxableAmount,
     shippingFee: shipping.shippingFee,
     shippingZone: shipping.shippingZone,
     shippingLabel: shipping.shippingLabel,

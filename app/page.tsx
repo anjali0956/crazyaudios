@@ -7,6 +7,7 @@ import Link from "next/link";
 import { useCategory } from "./components/CategoryContext";
 import ProductImageWithEmblem from "./components/ProductImageWithEmblem";
 import formatCategoryName from "@/lib/formatCategoryName";
+import { getDisplayPrice } from "@/lib/order-utils";
 
 type Product = {
   _id: string;
@@ -14,6 +15,7 @@ type Product = {
   price: number;
   image: string;
   category: string;
+  packSize?: number | null;
   featured?: boolean;
   flashSale?: boolean;
   discountPercentage?: number;
@@ -90,6 +92,7 @@ export default function Home() {
     { src: "/banners/peerless-store-audio.svg", link: "/category/speaker", className: "object-contain object-center" },
     {
       src: "/banners/ca-certified-banner.svg",
+      link: "/about-us",
       className: "object-contain object-center",
       buttonLabel: "Know More",
       buttonHref: "/about-us",
@@ -116,13 +119,18 @@ export default function Home() {
 
   const filteredFeaturedProducts = featuredProducts.filter((product) => {
     const matchesSearch = product.name?.toLowerCase().includes(search.toLowerCase());
+    const displayPrice = getDisplayPrice(
+      product.price,
+      product.discountPercentage || 0,
+      Boolean(product.flashSale)
+    ).inclusiveFinalPrice;
     const matchesPrice =
       priceFilter === "all" ||
-      (priceFilter === "0-500" && product.price >= 0 && product.price <= 500) ||
-      (priceFilter === "500-2000" && product.price > 500 && product.price <= 2000) ||
-      (priceFilter === "2000-5000" && product.price > 2000 && product.price <= 5000) ||
-      (priceFilter === "5000-10000" && product.price > 5000 && product.price <= 10000) ||
-      (priceFilter === "10000+" && product.price > 10000);
+      (priceFilter === "0-500" && displayPrice >= 0 && displayPrice <= 500) ||
+      (priceFilter === "500-2000" && displayPrice > 500 && displayPrice <= 2000) ||
+      (priceFilter === "2000-5000" && displayPrice > 2000 && displayPrice <= 5000) ||
+      (priceFilter === "5000-10000" && displayPrice > 5000 && displayPrice <= 10000) ||
+      (priceFilter === "10000+" && displayPrice > 10000);
     return matchesSearch && matchesPrice;
   });
 
@@ -131,27 +139,30 @@ export default function Home() {
     event.stopPropagation();
 
     const storedCart = JSON.parse(localStorage.getItem("cart") || "[]");
-    const finalPrice =
-      product.flashSale && (product.discountPercentage || 0) > 0
-        ? Math.round(product.price * (1 - (product.discountPercentage || 0) / 100))
-        : product.price;
+    const { inclusiveFinalPrice, inclusiveBasePrice } = getDisplayPrice(
+      product.price,
+      product.discountPercentage || 0,
+      Boolean(product.flashSale)
+    );
 
     const existingItem = storedCart.find((item: any) => item._id === product._id);
+    const packQuantity = Math.max(1, Number(product.packSize) || 1);
 
     if (existingItem) {
-      existingItem.quantity = Math.max(1, Number(existingItem.quantity || 1)) + 1;
-      existingItem.price = finalPrice;
-      existingItem.originalPrice = product.price;
+      existingItem.quantity = Math.max(packQuantity, Number(existingItem.quantity || packQuantity)) + packQuantity;
+      existingItem.price = inclusiveFinalPrice;
+      existingItem.originalPrice = inclusiveBasePrice;
       existingItem.flashSale = Boolean(product.flashSale);
       existingItem.discountPercentage = product.discountPercentage || 0;
+      existingItem.packSize = product.packSize || null;
     } else {
       storedCart.push({
         ...product,
-        price: finalPrice,
-        originalPrice: product.price,
+        price: inclusiveFinalPrice,
+        originalPrice: inclusiveBasePrice,
         flashSale: Boolean(product.flashSale),
         discountPercentage: product.discountPercentage || 0,
-        quantity: 1,
+        quantity: packQuantity,
       });
     }
 
@@ -176,9 +187,14 @@ export default function Home() {
                         src={banner.src}
                         alt={`Homepage banner ${index + 1}`}
                         fill
-                      className={banner.className || "object-cover object-center"}
+                        className={banner.className || "object-cover object-center"}
                         priority={index === 0}
                       />
+                      {banner.buttonHref && banner.buttonLabel ? (
+                        <span className="absolute bottom-3 right-4 z-10 inline-flex items-center rounded-full bg-black/85 px-3 py-1.5 text-xs font-semibold text-white shadow-md transition hover:bg-black sm:bottom-4 sm:right-6 sm:px-4 sm:py-2 sm:text-sm">
+                          {banner.buttonLabel}
+                        </span>
+                      ) : null}
                     </Link>
                   ) : (
                     <div className="relative h-full w-full">
@@ -245,7 +261,20 @@ export default function Home() {
         </div>
 
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 lg:gap-5">
-          {filteredFeaturedProducts.map((product) => (
+          {filteredFeaturedProducts.map((product) => {
+            const { inclusiveFinalPrice, inclusiveBasePrice } = getDisplayPrice(
+              product.price,
+              product.discountPercentage || 0,
+              Boolean(product.flashSale)
+            );
+            const activeDisplayPrice =
+              product.flashSale && (product.discountPercentage || 0) > 0
+                ? inclusiveFinalPrice
+                : inclusiveBasePrice;
+            const packSize = Math.max(0, Number(product.packSize) || 0);
+            const packDisplayPrice = packSize > 1 ? Number((activeDisplayPrice * packSize).toFixed(2)) : null;
+
+            return (
             <div key={product._id}>
               <Link href={`/product/${product._id}`}>
                 <div className="bg-white rounded-lg shadow p-3 hover:shadow-md h-full flex flex-col">
@@ -279,13 +308,19 @@ export default function Home() {
                     {product.flashSale && (product.discountPercentage || 0) > 0 ? (
                       <div className="flex items-center gap-2">
                         <p className="text-sm font-semibold text-red-600">
-                          Rs {Math.round(product.price * (1 - (product.discountPercentage || 0) / 100))}
+                          Rs {inclusiveFinalPrice}
                         </p>
-                        <p className="text-xs text-gray-500 line-through">Rs {product.price}</p>
+                        <p className="text-xs text-gray-500 line-through">Rs {inclusiveBasePrice}</p>
                       </div>
                     ) : (
-                      <p className="text-sm text-gray-700">Rs {product.price}</p>
+                      <p className="text-sm text-gray-700">Rs {inclusiveBasePrice}</p>
                     )}
+                    <p className="text-[11px] text-gray-500">Inclusive of GST</p>
+                    {packSize > 1 ? (
+                      <p className="mt-1 text-[11px] font-medium text-orange-600">
+                        Pack of {packSize} only • Rs {packDisplayPrice} per pack
+                      </p>
+                    ) : null}
 
                     <div className="mt-auto">
                       <button
@@ -300,7 +335,8 @@ export default function Home() {
                 </div>
               </Link>
             </div>
-          ))}
+            );
+          })}
         </div>
 
         {filteredFeaturedProducts.length === 0 && (
@@ -405,6 +441,54 @@ export default function Home() {
               </div>
               <h3 className="text-xl font-semibold text-gray-900">Customer Support</h3>
               <p className="mt-1 text-sm text-gray-600">Industry leading support</p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section className="px-4 pb-8 sm:px-6 lg:px-10 lg:pb-10">
+        <div className="overflow-hidden rounded-[28px] border border-orange-500/20 bg-[#121212] shadow-[0_20px_45px_rgba(0,0,0,0.24)]">
+          <div className="grid items-center gap-5 px-5 py-5 sm:px-7 lg:grid-cols-[auto,1fr,auto] lg:px-9 lg:py-6">
+            <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-[20px] bg-gradient-to-br from-orange-400 via-orange-500 to-orange-600 shadow-[0_0_24px_rgba(249,115,22,0.32)] lg:mx-0">
+              <svg viewBox="0 0 24 24" fill="none" className="h-8 w-8 text-white" aria-hidden="true">
+                <path
+                  d="M5 12a7 7 0 0 1 14 0"
+                  stroke="currentColor"
+                  strokeWidth="1.8"
+                  strokeLinecap="round"
+                />
+                <rect x="4" y="11" width="4" height="7" rx="1.5" stroke="currentColor" strokeWidth="1.8" />
+                <rect x="16" y="11" width="4" height="7" rx="1.5" stroke="currentColor" strokeWidth="1.8" />
+                <path d="M12 18v2" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+              </svg>
+            </div>
+
+            <div className="text-center lg:text-left">
+              <p className="text-[11px] font-semibold uppercase tracking-[0.42em] text-orange-400">
+                Seller Opportunity
+              </p>
+              <h2 className="mt-2 text-2xl font-black uppercase leading-tight text-white sm:text-3xl">
+                Sell your products on <span className="text-orange-400">Crazy Audios</span>
+              </h2>
+              <p className="mt-2.5 max-w-3xl text-sm leading-6 text-gray-300 sm:text-[15px]">
+                Join our growing marketplace of audio enthusiasts. List your gear, reach more buyers,
+                and grow your brand with us.
+              </p>
+              <p className="mt-3 text-sm font-medium text-orange-300 sm:text-[15px]">
+                If you&apos;re interested, mail us at{" "}
+                <a href="mailto:crazyaudios@gmail.com" className="font-semibold text-white underline decoration-orange-400 underline-offset-4">
+                  crazyaudios@gmail.com
+                </a>
+              </p>
+            </div>
+
+            <div className="flex justify-center lg:justify-end">
+              <a
+                href="mailto:crazyaudios@gmail.com?subject=Seller%20Opportunity%20for%20CrazyAudios"
+                className="inline-flex items-center justify-center rounded-full bg-gradient-to-r from-orange-400 via-orange-500 to-orange-600 px-7 py-3 text-sm font-bold text-white shadow-[0_10px_25px_rgba(249,115,22,0.28)] transition hover:brightness-105 sm:text-base"
+              >
+                Become a Seller
+              </a>
             </div>
           </div>
         </div>

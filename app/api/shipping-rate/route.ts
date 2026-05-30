@@ -59,9 +59,10 @@ export async function POST(req: Request) {
 
     return NextResponse.json(quote);
   } catch (error: any) {
+    const status = /Shipping weight is not configured/i.test(error?.message || "") ? 400 : 500;
     return NextResponse.json(
       { error: error?.message || "Failed to fetch shipping rate" },
-      { status: 500 }
+      { status }
     );
   }
 }

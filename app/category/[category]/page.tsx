@@ -7,6 +7,7 @@ import { useParams } from "next/navigation";
 import { useCategory } from "@/app/components/CategoryContext";
 import ProductImageWithEmblem from "@/app/components/ProductImageWithEmblem";
 import formatCategoryName from "@/lib/formatCategoryName";
+import { getDisplayPrice } from "@/lib/order-utils";
 
 type Product = {
   _id: string;
@@ -14,6 +15,7 @@ type Product = {
   price: number;
   image: string;
   category: string;
+  packSize?: number | null;
   flashSale?: boolean;
   discountPercentage?: number;
   stock?: number;
@@ -58,54 +60,75 @@ export default function CategoryProductsPage() {
           <p className="text-gray-600">No products found in this category.</p>
         ) : (
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 lg:gap-5">
-            {categoryProducts.map((product) => (
-              <Link key={product._id} href={`/product/${product._id}`}>
-                <div className="bg-white rounded-lg shadow p-3 hover:shadow-md h-full flex flex-col">
-                  <div className="relative w-full h-36 sm:h-40">
-                    <ProductImageWithEmblem
-                      src={product.image}
-                      alt={product.name}
-                      emblemSize={50}
-                      emblemClassName="top-1.5 right-1.5"
-                    />
-                  </div>
+            {categoryProducts.map((product) => {
+              const { inclusiveFinalPrice, inclusiveBasePrice } = getDisplayPrice(
+                product.price,
+                product.discountPercentage || 0,
+                Boolean(product.flashSale)
+              );
+              const activeDisplayPrice =
+                product.flashSale && (product.discountPercentage || 0) > 0
+                  ? inclusiveFinalPrice
+                  : inclusiveBasePrice;
+              const packSize = Math.max(0, Number(product.packSize) || 0);
+              const packDisplayPrice =
+                packSize > 1 ? Number((activeDisplayPrice * packSize).toFixed(2)) : null;
 
-                  <div className="flex flex-col flex-grow">
-                    <h3 className="mt-2 text-sm font-semibold line-clamp-2 min-h-[40px] text-black sm:text-base">{product.name}</h3>
-                    <div className="mb-1">
-                      {product.stock !== undefined && product.stock === 0 ? (
-                        <span className="text-base font-bold text-red-600">Out of stock</span>
-                      ) : product.stock !== undefined && product.stock <= 5 ? (
-                        <span className="text-base font-bold text-orange-500">Quick! Few left</span>
-                      ) : (
-                        <span className="text-base font-bold text-green-600">In stock</span>
-                      )}
+              return (
+                <Link key={product._id} href={`/product/${product._id}`}>
+                  <div className="bg-white rounded-lg shadow p-3 hover:shadow-md h-full flex flex-col">
+                    <div className="relative w-full h-36 sm:h-40">
+                      <ProductImageWithEmblem
+                        src={product.image}
+                        alt={product.name}
+                        emblemSize={50}
+                        emblemClassName="top-1.5 right-1.5"
+                      />
                     </div>
-                    {product.flashSale && (product.discountPercentage || 0) > 0 && (
-                      <span className="inline-block w-fit mb-1 text-[11px] font-semibold bg-red-100 text-red-600 px-2 py-0.5 rounded">
-                        Flash Sale {product.discountPercentage}% OFF
-                      </span>
-                    )}
-                    {product.flashSale && (product.discountPercentage || 0) > 0 ? (
-                      <div className="flex items-center gap-2">
-                        <p className="text-sm font-semibold text-red-600">
-                          Rs {Math.round(product.price * (1 - (product.discountPercentage || 0) / 100))}
-                        </p>
-                        <p className="text-xs text-gray-500 line-through">Rs {product.price}</p>
+
+                    <div className="flex flex-col flex-grow">
+                      <h3 className="mt-2 text-sm font-semibold line-clamp-2 min-h-[40px] text-black sm:text-base">{product.name}</h3>
+                      <div className="mb-1">
+                        {product.stock !== undefined && product.stock === 0 ? (
+                          <span className="text-base font-bold text-red-600">Out of stock</span>
+                        ) : product.stock !== undefined && product.stock <= 5 ? (
+                          <span className="text-base font-bold text-orange-500">Quick! Few left</span>
+                        ) : (
+                          <span className="text-base font-bold text-green-600">In stock</span>
+                        )}
                       </div>
-                    ) : (
-                      <p className="text-sm text-gray-700">Rs {product.price}</p>
-                    )}
+                      {product.flashSale && (product.discountPercentage || 0) > 0 && (
+                        <span className="inline-block w-fit mb-1 text-[11px] font-semibold bg-red-100 text-red-600 px-2 py-0.5 rounded">
+                          Flash Sale {product.discountPercentage}% OFF
+                        </span>
+                      )}
+                      {product.flashSale && (product.discountPercentage || 0) > 0 ? (
+                        <div className="flex items-center gap-2">
+                          <p className="text-sm font-semibold text-red-600">
+                            Rs {inclusiveFinalPrice}
+                          </p>
+                          <p className="text-xs text-gray-500 line-through">Rs {inclusiveBasePrice}</p>
+                        </div>
+                      ) : (
+                        <p className="text-sm text-gray-700">Rs {inclusiveBasePrice}</p>
+                      )}
+                      <p className="text-[11px] text-gray-500">Inclusive of GST</p>
+                      {packSize > 1 ? (
+                        <p className="mt-1 text-[11px] font-medium text-orange-600">
+                          Pack of {packSize} only • Rs {packDisplayPrice} per pack
+                        </p>
+                      ) : null}
 
-                    <div className="mt-auto">
-                      <button className="w-full bg-black text-white py-2.5 text-sm rounded sm:py-2">
-                        Add to Cart
-                      </button>
+                      <div className="mt-auto">
+                        <button className="w-full bg-black text-white py-2.5 text-sm rounded sm:py-2">
+                          Add to Cart
+                        </button>
+                      </div>
                     </div>
                   </div>
-                </div>
-              </Link>
-            ))}
+                </Link>
+              );
+            })}
           </div>
         )}
       </div>
