@@ -7,6 +7,22 @@ export default function AboutUsPage() {
       subtitle="A small audio-focused parts store built for makers, repairers, and music lovers."
     >
       <section>
+        <h2 className="text-xl font-semibold text-gray-900">What CA Certified Means</h2>
+        <p className="mt-2">
+          At CrazyAudios, we are committed to delivering components you can trust. Our CA
+          certified transistors and integrated circuits (ICs) are sourced directly from
+          authorized international manufacturers, ensuring complete authenticity and traceability.
+        </p>
+        <p className="mt-2">
+          All remaining product categories are procured exclusively from reputed dealers and
+          certified importers, guaranteeing consistent quality across our entire inventory.
+        </p>
+        <p className="mt-2">
+          When you shop with CrazyAudios, you shop with confidence.
+        </p>
+      </section>
+
+      <section>
         <h2 className="text-xl font-semibold text-gray-900">What We Care About</h2>
         <p className="mt-2">
           CrazyAudios is focused on components that help people build, repair, and improve sound
@@ -28,27 +44,6 @@ export default function AboutUsPage() {
         <p className="mt-2">
           We try to keep the catalog relevant, simple, and useful for actual speaker and amplifier
           projects instead of turning the store into a giant parts maze.
-        </p>
-      </section>
-
-      <section>
-        <h2 className="text-xl font-semibold text-gray-900">What CA Certified Means</h2>
-        <p className="mt-2">
-          When a product carries the CA Certified mark, it means CrazyAudios has treated it as a
-          more trusted listing in the catalog. We use that label for products we are more
-          comfortable recommending based on source confidence, consistency, and overall suitability
-          for real customer builds.
-        </p>
-        <p className="mt-2">
-          CA Certified does not mean the product is made by CrazyAudios, but it does mean we want
-          customers to feel a stronger sense of reliability around it. In practical terms, it
-          stands for trustworthy sourcing, better confidence in authenticity, and a stronger level
-          of assurance when you are choosing parts for audio projects.
-        </p>
-        <p className="mt-2">
-          We use it as a signal that the listing deserves extra confidence, especially for buyers
-          who want dependable parts, cleaner purchasing decisions, and less guesswork before
-          checkout.
         </p>
       </section>
     </InfoPageShell>
