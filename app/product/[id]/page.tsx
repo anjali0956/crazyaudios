@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import axios from "axios";
 import Image from "next/image";
+import Link from "next/link";
 import { useParams } from "next/navigation";
 import ProductImageWithEmblem from "@/app/components/ProductImageWithEmblem";
 import { getDisplayPrice } from "@/lib/order-utils";
@@ -14,6 +15,7 @@ type Product = {
   image: string;
   extraImages?: string[];
   description?: string[];
+  category?: string;
   packSize?: number | null;
   flashSale?: boolean;
   discountPercentage?: number;
@@ -24,16 +26,17 @@ export default function ProductDetails() {
   const params = useParams();
   const id = Array.isArray(params.id) ? params.id[0] : params.id;
   const [product, setProduct] = useState<Product | null>(null);
+  const [allProducts, setAllProducts] = useState<Product[]>([]);
   const [quantity, setQuantity] = useState(1);
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
 
   useEffect(() => {
     if (!id) return;
 
-    axios
-      .get(`/api/products/${id}`)
-      .then((res) => {
-        setProduct(res.data);
+    Promise.all([axios.get(`/api/products/${id}`), axios.get("/api/products")])
+      .then(([productRes, productsRes]) => {
+        setProduct(productRes.data);
+        setAllProducts(productsRes.data || []);
         setCurrentImageIndex(0);
       })
       .catch((err) => {
@@ -57,6 +60,19 @@ export default function ProductDetails() {
       return true;
     });
   }, [product]);
+
+  const relatedProducts = useMemo(() => {
+    if (!product) return [];
+
+    const normalizedCategory = String(product.category || "").trim().toLowerCase();
+    const sameCategory = allProducts.filter((candidate) => {
+      if (candidate._id === product._id) return false;
+      return String(candidate.category || "").trim().toLowerCase() === normalizedCategory;
+    });
+
+    const fallbackProducts = allProducts.filter((candidate) => candidate._id !== product._id);
+    return (sameCategory.length > 0 ? sameCategory : fallbackProducts).slice(0, 4);
+  }, [allProducts, product]);
 
   const finalPrice = useMemo(() => {
     if (!product) return 0;
@@ -275,6 +291,94 @@ export default function ProductDetails() {
           </button>
         </div>
       </div>
+
+      {relatedProducts.length > 0 ? (
+        <section className="mx-auto mt-8 max-w-7xl">
+          <div className="mb-5 flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
+            <div>
+              <h2 className="text-2xl font-bold sm:text-3xl">Related Products</h2>
+              <p className="text-sm text-gray-600">
+                Explore similar products you may want to add alongside this item.
+              </p>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4 lg:gap-5">
+            {relatedProducts.map((relatedProduct) => {
+              const {
+                inclusiveFinalPrice: relatedFinalPrice,
+                inclusiveBasePrice: relatedBasePrice,
+              } = getDisplayPrice(
+                relatedProduct.price,
+                relatedProduct.discountPercentage || 0,
+                Boolean(relatedProduct.flashSale)
+              );
+              const relatedPackSize = Math.max(0, Number(relatedProduct.packSize) || 0);
+              const relatedActiveDisplayPrice =
+                relatedProduct.flashSale && (relatedProduct.discountPercentage || 0) > 0
+                  ? relatedFinalPrice
+                  : relatedBasePrice;
+              const relatedPackDisplayPrice =
+                relatedPackSize > 1
+                  ? Number((relatedActiveDisplayPrice * relatedPackSize).toFixed(2))
+                  : null;
+
+              return (
+                <Link key={relatedProduct._id} href={`/product/${relatedProduct._id}`}>
+                  <div className="flex h-full flex-col rounded-lg bg-white p-3 shadow transition hover:shadow-md">
+                    <div className="relative h-36 w-full sm:h-40">
+                      <ProductImageWithEmblem
+                        src={relatedProduct.image}
+                        alt={relatedProduct.name}
+                        emblemSize={50}
+                        emblemClassName="top-1.5 right-1.5"
+                      />
+                    </div>
+
+                    <div className="flex flex-grow flex-col">
+                      <h3 className="mt-2 min-h-[40px] line-clamp-2 text-sm font-semibold text-black sm:text-base">
+                        {relatedProduct.name}
+                      </h3>
+
+                      <div className="mb-1">
+                        {relatedProduct.stock !== undefined && relatedProduct.stock === 0 ? (
+                          <span className="text-base font-bold text-red-600">Out of stock</span>
+                        ) : relatedProduct.stock !== undefined && relatedProduct.stock <= 5 ? (
+                          <span className="text-base font-bold text-orange-500">Quick! Few left</span>
+                        ) : (
+                          <span className="text-base font-bold text-green-600">In stock</span>
+                        )}
+                      </div>
+
+                      {relatedProduct.flashSale && (relatedProduct.discountPercentage || 0) > 0 ? (
+                        <div className="flex items-center gap-2">
+                          <p className="text-sm font-semibold text-red-600">Rs {relatedFinalPrice}</p>
+                          <p className="text-xs text-gray-500 line-through">Rs {relatedBasePrice}</p>
+                        </div>
+                      ) : (
+                        <p className="text-sm text-gray-700">Rs {relatedBasePrice}</p>
+                      )}
+                      <p className="text-[11px] text-gray-500">Inclusive of GST</p>
+
+                      {relatedPackSize > 1 ? (
+                        <p className="mt-1 text-[11px] font-medium text-orange-600">
+                          Pack of {relatedPackSize} only • Rs {relatedPackDisplayPrice} per pack
+                        </p>
+                      ) : null}
+
+                      <div className="mt-auto">
+                        <span className="inline-flex w-full items-center justify-center rounded bg-black py-2.5 text-sm text-white sm:py-2">
+                          View Product
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                </Link>
+              );
+            })}
+          </div>
+        </section>
+      ) : null}
     </main>
   );
 }
