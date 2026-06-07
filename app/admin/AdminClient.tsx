@@ -37,12 +37,25 @@ type DailyTraffic = {
   visitors: number;
 };
 
+type Address = {
+  name: string;
+  email: string;
+  phone: string;
+  address: string;
+  city: string;
+  state: string;
+  pincode: string;
+};
+
 type Order = {
   _id: string;
   receipt: string;
   customerName: string;
   customerEmail: string;
+  customerPhone: string;
   totalAmount: number;
+  shippingAddress: Address;
+  billingAddress: Address;
   fulfillmentStatus?: string;
   courierName?: string;
   trackingNumber?: string;
@@ -198,6 +211,41 @@ export default function AdminClient() {
 
     await fetchOrders();
     alert("Order tracking updated");
+  };
+
+  const formatAddressBlock = (address?: Address) => {
+    if (!address) return "";
+
+    return [
+      address.name,
+      address.phone,
+      address.email,
+      address.address,
+      `${address.city}, ${address.state} - ${address.pincode}`,
+    ]
+      .filter(Boolean)
+      .join("\n");
+  };
+
+  const copyOrderAddress = async (order: Order) => {
+    const addressText = [
+      `Order: ${order.receipt}`,
+      `Customer: ${order.customerName}`,
+      `Customer Phone: ${order.customerPhone}`,
+      "",
+      "Shipping Address",
+      formatAddressBlock(order.shippingAddress),
+      "",
+      "Billing Address",
+      formatAddressBlock(order.billingAddress),
+    ].join("\n");
+
+    try {
+      await navigator.clipboard.writeText(addressText);
+      alert("Address details copied");
+    } catch {
+      alert("Could not copy address details");
+    }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -471,11 +519,55 @@ export default function AdminClient() {
                       <p className="text-sm text-gray-600">
                         {order.customerName} • {order.customerEmail}
                       </p>
+                      <p className="text-sm text-gray-600">{order.customerPhone}</p>
                     </div>
                     <p className="font-semibold text-gray-700">₹{order.totalAmount}</p>
                   </div>
 
-                  <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+                  <div className="mb-4 grid gap-4 rounded-xl bg-gray-50 p-4 lg:grid-cols-2">
+                    <div>
+                      <h4 className="mb-2 text-sm font-semibold uppercase tracking-wide text-gray-700">
+                        Shipping Address
+                      </h4>
+                      <div className="space-y-1 text-sm text-gray-700">
+                        <p className="font-medium">{order.shippingAddress?.name}</p>
+                        <p>{order.shippingAddress?.phone}</p>
+                        <p>{order.shippingAddress?.email}</p>
+                        <p>{order.shippingAddress?.address}</p>
+                        <p>
+                          {order.shippingAddress?.city}, {order.shippingAddress?.state} -{' '}
+                          {order.shippingAddress?.pincode}
+                        </p>
+                      </div>
+                    </div>
+
+                    <div>
+                      <div className="mb-2 flex items-center justify-between gap-3">
+                        <h4 className="text-sm font-semibold uppercase tracking-wide text-gray-700">
+                          Billing Address
+                        </h4>
+                        <button
+                          type="button"
+                          onClick={() => copyOrderAddress(order)}
+                          className="rounded-lg border border-gray-300 px-3 py-1.5 text-xs font-medium text-gray-700 transition hover:bg-white"
+                        >
+                          Copy Address Details
+                        </button>
+                      </div>
+                      <div className="space-y-1 text-sm text-gray-700">
+                        <p className="font-medium">{order.billingAddress?.name}</p>
+                        <p>{order.billingAddress?.phone}</p>
+                        <p>{order.billingAddress?.email}</p>
+                        <p>{order.billingAddress?.address}</p>
+                        <p>
+                          {order.billingAddress?.city}, {order.billingAddress?.state} -{' '}
+                          {order.billingAddress?.pincode}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3"> 
                     <select
                       value={draft.fulfillmentStatus}
                       onChange={(e) =>
