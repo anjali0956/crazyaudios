@@ -227,6 +227,27 @@ export default function AdminClient() {
       .join("\n");
   };
 
+  const formatShippingLabel = (order: Order) => {
+    const address = order.shippingAddress;
+    if (!address) return "";
+
+    return [
+      "FROM",
+      "CRAZYAUDIOS",
+      "Thanissery, Irinjalakuda, Thrissur, Kerala - 680121",
+      "",
+      "TO",
+      address.name,
+      address.phone,
+      address.address,
+      `${address.city}, ${address.state} - ${address.pincode}`,
+      "",
+      `ORDER ID: ${order.receipt}`,
+    ]
+      .filter(Boolean)
+      .join("\n");
+  };
+
   const copyOrderAddress = async (order: Order) => {
     const addressText = [
       `Order: ${order.receipt}`,
@@ -246,6 +267,120 @@ export default function AdminClient() {
     } catch {
       alert("Could not copy address details");
     }
+  };
+
+  const copyShippingLabel = async (order: Order) => {
+    try {
+      await navigator.clipboard.writeText(formatShippingLabel(order));
+      alert("Shipping label copied");
+    } catch {
+      alert("Could not copy shipping label");
+    }
+  };
+
+  const printShippingLabel = (order: Order) => {
+    const labelText = formatShippingLabel(order);
+    if (!labelText) {
+      alert("Shipping label is not available for this order");
+      return;
+    }
+
+    const printWindow = window.open("", "_blank", "width=900,height=700");
+    if (!printWindow) {
+      alert("Popup blocked. Please allow popups to print the label.");
+      return;
+    }
+
+    const escapedLabel = labelText
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;");
+
+    printWindow.document.write(`<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Shipping Label - ${order.receipt}</title>
+    <style>
+      @page {
+        size: A4 portrait;
+        margin: 10mm;
+      }
+      * { box-sizing: border-box; }
+      body {
+        margin: 0;
+        font-family: Arial, Helvetica, sans-serif;
+        background: #ffffff;
+        color: #111111;
+      }
+      .sheet {
+        width: 100%;
+        min-height: calc(297mm - 20mm);
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        grid-template-rows: 1fr 1fr;
+        gap: 8mm;
+      }
+      .label {
+        width: 100%;
+        min-height: 130mm;
+        border: 2px solid #111111;
+        padding: 8mm 7mm;
+        display: flex;
+        flex-direction: column;
+        justify-content: space-between;
+      }
+      .heading {
+        font-size: 13pt;
+        font-weight: 700;
+        letter-spacing: 0.12em;
+        margin-bottom: 4mm;
+      }
+      .content {
+        white-space: pre-wrap;
+        font-size: 11pt;
+        line-height: 1.35;
+        font-weight: 600;
+      }
+      .footer {
+        margin-top: 4mm;
+        font-size: 8pt;
+        color: #444444;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="sheet">
+      <div class="label">
+        <div class="heading">CRAZYAUDIOS</div>
+        <div class="content">${escapedLabel}</div>
+        <div class="footer">CrazyAudios - Print ready shipping label</div>
+      </div>
+      <div class="label">
+        <div class="heading">CRAZYAUDIOS</div>
+        <div class="content">${escapedLabel}</div>
+        <div class="footer">CrazyAudios - Print ready shipping label</div>
+      </div>
+      <div class="label">
+        <div class="heading">CRAZYAUDIOS</div>
+        <div class="content">${escapedLabel}</div>
+        <div class="footer">CrazyAudios - Print ready shipping label</div>
+      </div>
+      <div class="label">
+        <div class="heading">CRAZYAUDIOS</div>
+        <div class="content">${escapedLabel}</div>
+        <div class="footer">CrazyAudios - Print ready shipping label</div>
+      </div>
+    </div>
+    <script>
+      window.onload = function () {
+        window.focus();
+        window.print();
+      };
+    </script>
+  </body>
+</html>`);
+    printWindow.document.close();
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -526,9 +661,27 @@ export default function AdminClient() {
 
                   <div className="mb-4 grid gap-4 rounded-xl bg-gray-50 p-4 lg:grid-cols-2">
                     <div>
-                      <h4 className="mb-2 text-sm font-semibold uppercase tracking-wide text-gray-700">
-                        Shipping Address
-                      </h4>
+                      <div className="mb-2 flex items-center justify-between gap-3">
+                        <h4 className="text-sm font-semibold uppercase tracking-wide text-gray-700">
+                          Shipping Address
+                        </h4>
+                        <div className="flex items-center gap-2">
+                          <button
+                            type="button"
+                            onClick={() => copyShippingLabel(order)}
+                            className="rounded-lg border border-gray-300 px-3 py-1.5 text-xs font-medium text-gray-700 transition hover:bg-white"
+                          >
+                            Copy A4 Label
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => printShippingLabel(order)}
+                            className="rounded-lg bg-black px-3 py-1.5 text-xs font-medium text-white transition hover:bg-gray-800"
+                          >
+                            Print A4 Label
+                          </button>
+                        </div>
+                      </div>
                       <div className="space-y-1 text-sm text-gray-700">
                         <p className="font-medium">{order.shippingAddress?.name}</p>
                         <p>{order.shippingAddress?.phone}</p>
@@ -538,6 +691,14 @@ export default function AdminClient() {
                           {order.shippingAddress?.city}, {order.shippingAddress?.state} -{' '}
                           {order.shippingAddress?.pincode}
                         </p>
+                      </div>
+                      <div className="mt-4 rounded-lg border border-dashed border-gray-300 bg-white p-3">
+                        <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-gray-500">
+                          A4 Sticker Print Format
+                        </p>
+                        <pre className="whitespace-pre-wrap break-words font-sans text-sm leading-6 text-gray-800">
+                          {formatShippingLabel(order)}
+                        </pre>
                       </div>
                     </div>
 

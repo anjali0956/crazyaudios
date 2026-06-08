@@ -61,7 +61,10 @@ export function getTaxableAmountFromInclusive(inclusivePrice: number, taxRate = 
 
 export function getDisplayPrice(basePrice: number, discountPercentage = 0, flashSale = false) {
   const normalizedDiscount = Math.max(0, Math.min(95, Number(discountPercentage) || 0));
-  const inclusiveBasePrice = getInclusivePrice(Number(basePrice) || 0);
+  // Admin-entered product prices are already GST-inclusive.
+  // We should display and discount that inclusive amount directly,
+  // then extract GST later only for invoice/order breakdowns.
+  const inclusiveBasePrice = roundCurrency(Number(basePrice) || 0);
   const inclusiveFinalPrice =
     flashSale && normalizedDiscount > 0
       ? roundCurrency(inclusiveBasePrice * (1 - normalizedDiscount / 100))
@@ -120,6 +123,40 @@ export function getTaxLabel(address?: Partial<Address> | null) {
   return zone === "intra_state" ? "GST (CGST 9% + SGST 9%)" : "GST (IGST 18%)";
 }
 
+export function getTaxBreakdown(
+  inclusivePrice: number,
+  address?: Partial<Address> | null,
+  taxRate = TAX_RATE
+) {
+  const zone = getTaxZone(address);
+  const totalTaxAmount = extractInclusiveTaxAmount(inclusivePrice, taxRate);
+
+  if (zone === "intra_state") {
+    const halfTaxAmount = roundCurrency(totalTaxAmount / 2);
+    return {
+      zone,
+      totalTaxAmount,
+      cgstRate: roundCurrency(taxRate / 2),
+      sgstRate: roundCurrency(taxRate / 2),
+      cgstAmount: halfTaxAmount,
+      sgstAmount: roundCurrency(totalTaxAmount - halfTaxAmount),
+      igstRate: 0,
+      igstAmount: 0,
+    };
+  }
+
+  return {
+    zone,
+    totalTaxAmount,
+    cgstRate: 0,
+    sgstRate: 0,
+    cgstAmount: 0,
+    sgstAmount: 0,
+    igstRate: taxRate,
+    igstAmount: totalTaxAmount,
+  };
+}
+
 export function calculateShippingFee(
   subtotal: number,
   address?: Partial<Address> | null,
@@ -149,6 +186,7 @@ export function calculateTotals(
   );
   const taxAmount = extractInclusiveTaxAmount(roundedSubtotal, TAX_RATE);
   const taxableAmount = getTaxableAmountFromInclusive(roundedSubtotal, TAX_RATE);
+  const taxBreakdown = getTaxBreakdown(roundedSubtotal, address, TAX_RATE);
   const totalAmount = roundCurrency(roundedSubtotal + shipping.shippingFee);
 
   return {
@@ -160,6 +198,7 @@ export function calculateTotals(
     taxRate: TAX_RATE,
     taxLabel: getTaxLabel(address),
     taxAmount,
+    taxBreakdown,
     totalAmount,
   };
 }

@@ -6,6 +6,7 @@ import axios from "axios";
 import {
   TAX_RATE,
   extractInclusiveTaxAmount,
+  getTaxBreakdown,
   getTaxLabel,
   getTaxableAmountFromInclusive,
   roundCurrency,
@@ -116,6 +117,7 @@ export default function CheckoutPage() {
   const shippingFee = shippingQuote?.shippingFee || 0;
   const taxAmount = extractInclusiveTaxAmount(subtotal, TAX_RATE);
   const taxableAmount = getTaxableAmountFromInclusive(subtotal, TAX_RATE);
+  const taxBreakdown = useMemo(() => getTaxBreakdown(subtotal, shipping, TAX_RATE), [subtotal, shipping]);
   const grandTotal = roundCurrency(subtotal + shippingFee);
 
   useEffect(() => {
@@ -574,6 +576,15 @@ export default function CheckoutPage() {
               <div>
                 <span>GST Included ({TAX_RATE}%)</span>
                 <p className="text-xs text-gray-500">{taxLabel}</p>
+                {taxBreakdown.zone === "intra_state" ? (
+                  <p className="text-xs text-gray-500">
+                    CGST ({taxBreakdown.cgstRate}%): Rs {taxBreakdown.cgstAmount} + SGST ({taxBreakdown.sgstRate}%): Rs {taxBreakdown.sgstAmount}
+                  </p>
+                ) : (
+                  <p className="text-xs text-gray-500">
+                    IGST ({taxBreakdown.igstRate}%): Rs {taxBreakdown.igstAmount}
+                  </p>
+                )}
               </div>
               <span>Rs {taxAmount}</span>
             </div>
