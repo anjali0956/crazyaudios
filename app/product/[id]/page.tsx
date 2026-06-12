@@ -7,6 +7,7 @@ import Link from "next/link";
 import { useParams } from "next/navigation";
 import ProductImageWithEmblem from "@/app/components/ProductImageWithEmblem";
 import { getDisplayPrice } from "@/lib/order-utils";
+import shouldShowCaEmblem from "@/lib/shouldShowCaEmblem";
 
 type Product = {
   _id: string;
@@ -136,6 +137,7 @@ export default function ProductDetails() {
             <ProductImageWithEmblem
               src={activeImage}
               alt={product.name}
+              emblemSrc={shouldShowCaEmblem(product.category) ? undefined : ""}
               emblemSize={102}
               className="rounded-lg object-contain"
               emblemClassName="top-3 right-3"
@@ -330,6 +332,7 @@ export default function ProductDetails() {
                       <ProductImageWithEmblem
                         src={relatedProduct.image}
                         alt={relatedProduct.name}
+                        emblemSrc={shouldShowCaEmblem(relatedProduct.category) ? undefined : ""}
                         emblemSize={50}
                         emblemClassName="top-1.5 right-1.5"
                       />

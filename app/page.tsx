@@ -8,6 +8,7 @@ import { useCategory } from "./components/CategoryContext";
 import ProductImageWithEmblem from "./components/ProductImageWithEmblem";
 import formatCategoryName from "@/lib/formatCategoryName";
 import { getDisplayPrice } from "@/lib/order-utils";
+import shouldShowCaEmblem from "@/lib/shouldShowCaEmblem";
 
 type Product = {
   _id: string;
@@ -33,6 +34,8 @@ export default function Home() {
     left: "/banners/crazyaudios-banner-left.svg",
     right: "/banners/crazyaudios-banner-right.svg",
   });
+  const normalizedHomepageBannerLeft = String(homepageBanners.left || "").trim();
+  const normalizedHomepageBannerRight = String(homepageBanners.right || "").trim();
 
   useEffect(() => {
     setSelectedCategory("all");
@@ -97,7 +100,7 @@ export default function Home() {
       buttonLabel: "Know More",
       buttonHref: "/about-us",
     },
-    { src: "/banners/brainsaudios-banner.svg", link: "/category/tonecontrol", className: "object-contain object-center" },
+    { src: "/banners/brainsaudios-banner.svg", link: "/category/brainsaudios", className: "object-contain object-center" },
     { src: "/banners/crazyaudios-flea-market-banner.svg", className: "object-contain object-center" },
   ];
 
@@ -282,6 +285,7 @@ export default function Home() {
                     <ProductImageWithEmblem
                       src={product.image}
                       alt={product.name}
+                      emblemSrc={shouldShowCaEmblem(product.category) ? undefined : ""}
                       emblemSize={50}
                       emblemClassName="top-1.5 right-1.5"
                     />
@@ -355,10 +359,14 @@ export default function Home() {
               href={`/category/${encodeURIComponent(item.category)}`}
               className="bg-white rounded-lg border border-gray-200 p-3 shadow-sm hover:shadow-md transition sm:p-4"
             >
+              {(() => {
+                const normalizedCategoryImage = String(item.image || "").trim();
+
+                return (
               <div className="relative w-full h-28 rounded-lg bg-gray-50 overflow-hidden sm:h-44">
-                {item.image ? (
+                {normalizedCategoryImage ? (
                   <Image
-                    src={item.image}
+                    src={normalizedCategoryImage}
                     alt={formatCategoryName(item.category)}
                     fill
                     className="object-contain p-3"
@@ -369,6 +377,8 @@ export default function Home() {
                   </div>
                 )}
               </div>
+                );
+              })()}
               <p className="mt-3 text-black text-base leading-6 font-semibold sm:mt-4 sm:text-2xl sm:leading-8">
                 {formatCategoryName(item.category)}
               </p>
@@ -380,11 +390,23 @@ export default function Home() {
       <section className="px-4 pb-8 sm:px-6 lg:px-10 lg:pb-10">
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
           <Link href="/category/diode" className="relative block h-[160px] sm:h-[220px] md:h-[280px] rounded-lg overflow-hidden border border-gray-200 shadow-sm">
-            <Image src={homepageBanners.left} alt="CrazyAudios promo banner 1" fill className="object-cover" />
+            {normalizedHomepageBannerLeft ? (
+              <Image src={normalizedHomepageBannerLeft} alt="CrazyAudios promo banner 1" fill className="object-cover" />
+            ) : (
+              <div className="absolute inset-0 flex items-center justify-center bg-gray-100 text-sm font-medium text-gray-400">
+                Banner unavailable
+              </div>
+            )}
           </Link>
-        <Link href="/category/tonecontrol" className="relative block h-[160px] sm:h-[220px] md:h-[280px] rounded-lg overflow-hidden border border-gray-200 shadow-sm">
-            <Image src={homepageBanners.right} alt="CrazyAudios promo banner 2" fill className="object-cover" />
-        </Link>
+          <Link href="/category/brainsaudios" className="relative block h-[160px] sm:h-[220px] md:h-[280px] rounded-lg overflow-hidden border border-gray-200 shadow-sm">
+            {normalizedHomepageBannerRight ? (
+              <Image src={normalizedHomepageBannerRight} alt="CrazyAudios promo banner 2" fill className="object-cover" />
+            ) : (
+              <div className="absolute inset-0 flex items-center justify-center bg-gray-100 text-sm font-medium text-gray-400">
+                Banner unavailable
+              </div>
+            )}
+          </Link>
         </div>
       </section>
 
