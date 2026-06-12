@@ -184,21 +184,32 @@ export function calculateTotals(
     shippingFeeOverride,
     shippingLabelOverride
   );
-  const taxAmount = extractInclusiveTaxAmount(roundedSubtotal, TAX_RATE);
-  const taxableAmount = getTaxableAmountFromInclusive(roundedSubtotal, TAX_RATE);
-  const taxBreakdown = getTaxBreakdown(roundedSubtotal, address, TAX_RATE);
+  const productTaxAmount = extractInclusiveTaxAmount(roundedSubtotal, TAX_RATE);
+  const productTaxableAmount = getTaxableAmountFromInclusive(roundedSubtotal, TAX_RATE);
+  const productTaxBreakdown = getTaxBreakdown(roundedSubtotal, address, TAX_RATE);
+  const shippingTaxAmount = extractInclusiveTaxAmount(shipping.shippingFee, TAX_RATE);
+  const shippingTaxableAmount = getTaxableAmountFromInclusive(shipping.shippingFee, TAX_RATE);
+  const shippingTaxBreakdown = getTaxBreakdown(shipping.shippingFee, address, TAX_RATE);
+  const taxAmount = roundCurrency(productTaxAmount + shippingTaxAmount);
+  const taxableAmount = roundCurrency(productTaxableAmount + shippingTaxableAmount);
   const totalAmount = roundCurrency(roundedSubtotal + shipping.shippingFee);
 
   return {
     subtotal: roundedSubtotal,
     taxableAmount,
+    productTaxableAmount,
     shippingFee: shipping.shippingFee,
+    shippingTaxableAmount,
     shippingZone: shipping.shippingZone,
     shippingLabel: shipping.shippingLabel,
     taxRate: TAX_RATE,
     taxLabel: getTaxLabel(address),
     taxAmount,
-    taxBreakdown,
+    productTaxAmount,
+    shippingTaxAmount,
+    taxBreakdown: productTaxBreakdown,
+    productTaxBreakdown,
+    shippingTaxBreakdown,
     totalAmount,
   };
 }

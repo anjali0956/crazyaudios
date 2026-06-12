@@ -49,9 +49,13 @@ const OrderSchema = new mongoose.Schema(
     items: { type: [OrderItemSchema], default: [] },
     subtotal: { type: Number, required: true },
     taxableAmount: { type: Number, required: true },
+    productTaxableAmount: { type: Number, default: 0 },
     shippingFee: { type: Number, required: true },
+    shippingTaxableAmount: { type: Number, default: 0 },
     taxRate: { type: Number, required: true },
     taxAmount: { type: Number, required: true },
+    productTaxAmount: { type: Number, default: 0 },
+    shippingTaxAmount: { type: Number, default: 0 },
     totalAmount: { type: Number, required: true },
     currency: { type: String, default: "INR" },
     status: {

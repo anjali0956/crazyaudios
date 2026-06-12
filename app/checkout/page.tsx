@@ -8,7 +8,6 @@ import {
   extractInclusiveTaxAmount,
   getTaxBreakdown,
   getTaxLabel,
-  getTaxableAmountFromInclusive,
   roundCurrency,
 } from "@/lib/order-utils";
 
@@ -115,9 +114,26 @@ export default function CheckoutPage() {
   );
   const taxLabel = useMemo(() => getTaxLabel(shipping), [shipping]);
   const shippingFee = shippingQuote?.shippingFee || 0;
-  const taxAmount = extractInclusiveTaxAmount(subtotal, TAX_RATE);
-  const taxableAmount = getTaxableAmountFromInclusive(subtotal, TAX_RATE);
-  const taxBreakdown = useMemo(() => getTaxBreakdown(subtotal, shipping, TAX_RATE), [subtotal, shipping]);
+  const productTaxAmount = extractInclusiveTaxAmount(subtotal, TAX_RATE);
+  const productTaxBreakdown = useMemo(
+    () => getTaxBreakdown(subtotal, shipping, TAX_RATE),
+    [subtotal, shipping]
+  );
+  const shippingTaxAmount = extractInclusiveTaxAmount(shippingFee, TAX_RATE);
+  const shippingTaxBreakdown = useMemo(
+    () => getTaxBreakdown(shippingFee, shipping, TAX_RATE),
+    [shippingFee, shipping]
+  );
+  const totalTaxAmount = roundCurrency(productTaxAmount + shippingTaxAmount);
+  const combinedCgstAmount = roundCurrency(
+    productTaxBreakdown.cgstAmount + shippingTaxBreakdown.cgstAmount
+  );
+  const combinedSgstAmount = roundCurrency(
+    productTaxBreakdown.sgstAmount + shippingTaxBreakdown.sgstAmount
+  );
+  const combinedIgstAmount = roundCurrency(
+    productTaxBreakdown.igstAmount + shippingTaxBreakdown.igstAmount
+  );
   const grandTotal = roundCurrency(subtotal + shippingFee);
 
   useEffect(() => {
@@ -557,12 +573,6 @@ export default function CheckoutPage() {
             </div>
             <div className="flex justify-between">
               <div>
-                <span>Product Value (before GST)</span>
-              </div>
-              <span>Rs {taxableAmount}</span>
-            </div>
-            <div className="flex justify-between">
-              <div>
                 <span>Courier</span>
                 <p className="text-xs text-gray-500">
                   {shippingError
@@ -576,17 +586,17 @@ export default function CheckoutPage() {
               <div>
                 <span>GST Included ({TAX_RATE}%)</span>
                 <p className="text-xs text-gray-500">{taxLabel}</p>
-                {taxBreakdown.zone === "intra_state" ? (
+                {productTaxBreakdown.zone === "intra_state" ? (
                   <p className="text-xs text-gray-500">
-                    CGST ({taxBreakdown.cgstRate}%): Rs {taxBreakdown.cgstAmount} + SGST ({taxBreakdown.sgstRate}%): Rs {taxBreakdown.sgstAmount}
+                    CGST ({productTaxBreakdown.cgstRate}%): Rs {combinedCgstAmount} + SGST ({productTaxBreakdown.sgstRate}%): Rs {combinedSgstAmount}
                   </p>
                 ) : (
                   <p className="text-xs text-gray-500">
-                    IGST ({taxBreakdown.igstRate}%): Rs {taxBreakdown.igstAmount}
+                    IGST ({productTaxBreakdown.igstRate}%): Rs {combinedIgstAmount}
                   </p>
                 )}
               </div>
-              <span>Rs {taxAmount}</span>
+              <span>Rs {totalTaxAmount}</span>
             </div>
           </div>
 

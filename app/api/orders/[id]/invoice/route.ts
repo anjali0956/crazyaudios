@@ -4,7 +4,7 @@ import { PDFDocument, StandardFonts, rgb } from "pdf-lib";
 import dbConnect from "@/lib/mongodb";
 import Order from "@/models/Order";
 import { authOptions } from "@/app/api/auth/[...nextauth]/route";
-import { getTaxBreakdown, getTaxableAmountFromInclusive, roundCurrency } from "@/lib/order-utils";
+import { getTaxBreakdown, roundCurrency } from "@/lib/order-utils";
 
 export async function GET(
   _req: Request,
@@ -90,32 +90,36 @@ export async function GET(
     }
 
     y -= 20;
-    const taxableAmount =
-      typeof order.taxableAmount === "number"
-        ? order.taxableAmount
-        : getTaxableAmountFromInclusive(order.subtotal, order.taxRate);
-    const taxBreakdown = getTaxBreakdown(order.subtotal, order.shippingAddress, order.taxRate);
+    const productTaxBreakdown = getTaxBreakdown(order.subtotal, order.shippingAddress, order.taxRate);
+    const shippingTaxBreakdown = getTaxBreakdown(order.shippingFee, order.shippingAddress, order.taxRate);
+    const combinedCgstAmount = roundCurrency(
+      productTaxBreakdown.cgstAmount + shippingTaxBreakdown.cgstAmount
+    );
+    const combinedSgstAmount = roundCurrency(
+      productTaxBreakdown.sgstAmount + shippingTaxBreakdown.sgstAmount
+    );
+    const combinedIgstAmount = roundCurrency(
+      productTaxBreakdown.igstAmount + shippingTaxBreakdown.igstAmount
+    );
     page.drawText(`Products Total (incl. GST): Rs ${order.subtotal}`, { x: 310, y, size: 11, font });
     y -= 18;
-    page.drawText(`Product Value (before GST): Rs ${roundCurrency(taxableAmount)}`, { x: 310, y, size: 11, font });
+    page.drawText(`Courier (incl. GST): Rs ${order.shippingFee}`, { x: 310, y, size: 11, font });
     y -= 18;
-    page.drawText(`Included GST (${order.taxRate}%): Rs ${order.taxAmount}`, { x: 310, y, size: 11, font });
+    page.drawText(`GST Included (${order.taxRate}%): Rs ${order.taxAmount}`, { x: 310, y, size: 11, font });
     y -= 18;
-    if (taxBreakdown.zone === "intra_state") {
+    if (productTaxBreakdown.zone === "intra_state") {
       page.drawText(
-        `CGST (${taxBreakdown.cgstRate}%): Rs ${taxBreakdown.cgstAmount} | SGST (${taxBreakdown.sgstRate}%): Rs ${taxBreakdown.sgstAmount}`,
+        `CGST (${productTaxBreakdown.cgstRate}%): Rs ${combinedCgstAmount} | SGST (${productTaxBreakdown.sgstRate}%): Rs ${combinedSgstAmount}`,
         { x: 310, y, size: 11, font }
       );
     } else {
-      page.drawText(`IGST (${taxBreakdown.igstRate}%): Rs ${taxBreakdown.igstAmount}`, {
+      page.drawText(`IGST (${productTaxBreakdown.igstRate}%): Rs ${combinedIgstAmount}`, {
         x: 310,
         y,
         size: 11,
         font,
       });
     }
-    y -= 18;
-    page.drawText(`Shipping: Rs ${order.shippingFee}`, { x: 390, y, size: 11, font });
     y -= 18;
     page.drawText(`Total Paid: Rs ${order.totalAmount}`, { x: 390, y, size: 11, font: boldFont });
 
