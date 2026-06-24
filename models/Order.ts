@@ -65,7 +65,7 @@ const OrderSchema = new mongoose.Schema(
     },
     fulfillmentStatus: {
       type: String,
-      enum: ["processing", "packed", "shipped", "out_for_delivery", "delivered", "cancelled"],
+      enum: ["processing", "packed", "shipped", "out_for_delivery", "delivered", "completed", "cancelled"],
       default: "processing",
     },
     courierName: { type: String, default: "" },
@@ -79,4 +79,6 @@ const OrderSchema = new mongoose.Schema(
   { timestamps: true }
 );
 
-export default mongoose.models.Order || mongoose.model("Order", OrderSchema);
+delete mongoose.models.Order;
+
+export default mongoose.model("Order", OrderSchema);

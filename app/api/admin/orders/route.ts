@@ -70,32 +70,42 @@ export async function PATCH(req: Request) {
       "shipped",
       "out_for_delivery",
       "delivered",
+      "completed",
       "cancelled",
-    ];
+    ] as const;
 
-    if (!allowedStatuses.includes(fulfillmentStatus)) {
+    if (!(allowedStatuses as readonly string[]).includes(fulfillmentStatus)) {
       return NextResponse.json({ error: "Invalid fulfillment status" }, { status: 400 });
     }
 
-    const order = await Order.findById(orderId);
+    const order = await Order.findById(orderId).select("_id");
 
     if (!order) {
       return NextResponse.json({ error: "Order not found" }, { status: 404 });
     }
 
-    order.fulfillmentStatus = fulfillmentStatus;
-    order.courierName = courierName;
-    order.trackingNumber = trackingNumber;
-    order.estimatedDelivery = estimatedDelivery ? new Date(estimatedDelivery) : null;
-    order.trackingTimeline.push({
-      status: fulfillmentStatus,
-      title: fulfillmentStatus.replaceAll("_", " ").replace(/\b\w/g, (char: string) => char.toUpperCase()),
-      description: note || "Shipment updated by admin.",
-      location,
-      createdAt: new Date(),
-    });
-
-    await order.save();
+    await Order.updateOne(
+      { _id: orderId },
+      {
+        $set: {
+          fulfillmentStatus: fulfillmentStatus as (typeof allowedStatuses)[number],
+          courierName,
+          trackingNumber,
+          estimatedDelivery: estimatedDelivery ? new Date(estimatedDelivery) : null,
+        },
+        $push: {
+          trackingTimeline: {
+            status: fulfillmentStatus,
+            title: fulfillmentStatus
+              .replaceAll("_", " ")
+              .replace(/\b\w/g, (char: string) => char.toUpperCase()),
+            description: note || "Shipment updated by admin.",
+            location,
+            createdAt: new Date(),
+          },
+        },
+      }
+    );
 
     return NextResponse.json({ success: true });
   } catch (error: any) {

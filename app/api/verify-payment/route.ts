@@ -67,15 +67,13 @@ export async function POST(req: Request) {
     order.razorpayPaymentId = razorpayPaymentId;
     order.razorpaySignature = razorpaySignature;
     if (!order.trackingTimeline?.length) {
-      order.trackingTimeline = [
-        {
-          status: "processing",
-          title: "Order Confirmed",
-          description: "Payment verified successfully. We are preparing your shipment.",
-          location: "CrazyAudios Warehouse",
-          createdAt: new Date(),
-        },
-      ];
+      order.trackingTimeline.push({
+        status: "processing",
+        title: "Order Confirmed",
+        description: "Payment verified successfully. We are preparing your shipment.",
+        location: "CrazyAudios Warehouse",
+        createdAt: new Date(),
+      } as any);
     }
     await order.save();
 

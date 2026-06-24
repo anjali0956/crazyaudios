@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useEffect, useRef, useState } from "react";
 import axios from "axios";
@@ -47,6 +47,15 @@ type Address = {
   pincode: string;
 };
 
+type OrderItem = {
+  productId: string;
+  name: string;
+  image: string;
+  unitPrice: number;
+  quantity: number;
+  lineTotal: number;
+};
+
 type Order = {
   _id: string;
   receipt: string;
@@ -54,6 +63,9 @@ type Order = {
   customerEmail: string;
   customerPhone: string;
   totalAmount: number;
+  status: string;
+  createdAt?: string;
+  items: OrderItem[];
   shippingAddress: Address;
   billingAddress: Address;
   fulfillmentStatus?: string;
@@ -101,6 +113,31 @@ export default function AdminClient() {
   const [productSearch, setProductSearch] = useState("");
   const [orderStatusDrafts, setOrderStatusDrafts] = useState<Record<string, OrderDraft>>({});
   const productFormRef = useRef<HTMLFormElement | null>(null);
+
+  const formatCurrency = (value: number) => `Rs ${Number(value || 0).toFixed(2)}`;
+
+  const getFulfillmentBadgeClasses = (status?: string) => {
+    switch (status) {
+      case "completed":
+      case "delivered":
+        return "bg-green-100 text-green-700";
+      case "shipped":
+      case "out_for_delivery":
+        return "bg-blue-100 text-blue-700";
+      case "packed":
+        return "bg-amber-100 text-amber-700";
+      case "cancelled":
+        return "bg-red-100 text-red-700";
+      case "processing":
+      default:
+        return "bg-gray-100 text-gray-700";
+    }
+  };
+
+  const formatFulfillmentStatus = (status?: string) =>
+    String(status || "processing")
+      .replaceAll("_", " ")
+      .replace(/\b\w/g, (char) => char.toUpperCase());
 
   const fetchProducts = async () => {
     const res = await axios.get("/api/products");
@@ -199,18 +236,26 @@ export default function AdminClient() {
     const draft = orderStatusDrafts[orderId];
     if (!draft) return;
 
-    await axios.patch("/api/admin/orders", {
-      orderId,
-      fulfillmentStatus: draft.fulfillmentStatus,
-      courierName: draft.courierName,
-      trackingNumber: draft.trackingNumber,
-      estimatedDelivery: draft.estimatedDelivery,
-      note: draft.note,
-      location: draft.location,
-    });
+    try {
+      await axios.patch("/api/admin/orders", {
+        orderId,
+        fulfillmentStatus: draft.fulfillmentStatus,
+        courierName: draft.courierName,
+        trackingNumber: draft.trackingNumber,
+        estimatedDelivery: draft.estimatedDelivery,
+        note: draft.note,
+        location: draft.location,
+      });
 
-    await fetchOrders();
-    alert("Order tracking updated");
+      await fetchOrders();
+      alert("Order tracking updated");
+    } catch (error: any) {
+      alert(
+        error?.response?.data?.error ||
+          error?.message ||
+          "Could not update order status"
+      );
+    }
   };
 
   const formatAddressBlock = (address?: Address) => {
@@ -593,7 +638,7 @@ export default function AdminClient() {
                     <div className="mb-1 flex items-center justify-between text-sm">
                       <span className="font-medium">{day.label}</span>
                       <span className="text-gray-600">
-                        {day.views} views • {day.visitors} visitors
+                        {day.views} views â€¢ {day.visitors} visitors
                       </span>
                     </div>
                     <div className="h-3 overflow-hidden rounded-full bg-gray-200">
@@ -617,9 +662,9 @@ export default function AdminClient() {
       <section className="mb-10 rounded-2xl bg-white p-6 shadow">
         <div className="mb-5 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div>
-            <h2 className="text-2xl font-bold">Order Tracking</h2>
+            <h2 className="text-2xl font-bold">Orders & Tracking</h2>
             <p className="text-sm text-gray-600">
-              Update live order progress so customers can see courier details, ETA, and timeline changes.
+              Review paid orders, customer details, shipping addresses, ordered items, and update fulfillment progress.
             </p>
           </div>
           <button
@@ -655,8 +700,54 @@ export default function AdminClient() {
                         {order.customerName} • {order.customerEmail}
                       </p>
                       <p className="text-sm text-gray-600">{order.customerPhone}</p>
+                      {order.createdAt ? (
+                        <p className="text-xs text-gray-500">
+                          Ordered on {new Date(order.createdAt).toLocaleString("en-IN")}
+                        </p>
+                      ) : null}
                     </div>
-                    <p className="font-semibold text-gray-700">₹{order.totalAmount}</p>
+                    <div className="flex flex-col items-start gap-2 sm:items-end">
+                      <span
+                        className={`inline-flex rounded-full px-3 py-1 text-xs font-semibold ${getFulfillmentBadgeClasses(
+                          order.fulfillmentStatus
+                        )}`}
+                      >
+                        {formatFulfillmentStatus(order.fulfillmentStatus)}
+                      </span>
+                      <p className="font-semibold text-gray-700">{formatCurrency(order.totalAmount)}</p>
+                      <p className="text-xs font-medium uppercase tracking-wide text-green-700">
+                        Payment: {String(order.status || "paid").toUpperCase()}
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="mb-4 rounded-xl border border-gray-200 bg-white p-4">
+                    <div className="mb-3 flex items-center justify-between gap-3">
+                      <h4 className="text-sm font-semibold uppercase tracking-wide text-gray-700">
+                        Products Ordered
+                      </h4>
+                      <span className="text-xs text-gray-500">
+                        {order.items?.length || 0} item{(order.items?.length || 0) === 1 ? "" : "s"}
+                      </span>
+                    </div>
+                    <div className="space-y-3">
+                      {(order.items || []).map((item, index) => (
+                        <div
+                          key={`${order._id}-${item.productId || index}`}
+                          className="flex flex-col gap-2 rounded-lg border border-gray-100 bg-gray-50 p-3 sm:flex-row sm:items-center sm:justify-between"
+                        >
+                          <div>
+                            <p className="font-medium text-gray-900">{item.name}</p>
+                            <p className="text-sm text-gray-600">
+                              Qty: {item.quantity} • Unit Price: {formatCurrency(item.unitPrice)}
+                            </p>
+                          </div>
+                          <p className="text-sm font-semibold text-gray-800">
+                            {formatCurrency(item.lineTotal)}
+                          </p>
+                        </div>
+                      ))}
+                    </div>
                   </div>
 
                   <div className="mb-4 grid gap-4 rounded-xl bg-gray-50 p-4 lg:grid-cols-2">
@@ -741,6 +832,7 @@ export default function AdminClient() {
                       <option value="shipped">Shipped</option>
                       <option value="out_for_delivery">Out for delivery</option>
                       <option value="delivered">Delivered</option>
+                      <option value="completed">Completed</option>
                       <option value="cancelled">Cancelled</option>
                     </select>
 
@@ -1035,3 +1127,6 @@ export default function AdminClient() {
     </main>
   );
 }
+
+
+
