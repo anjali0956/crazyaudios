@@ -12,14 +12,20 @@ export default function CategoryDropdown() {
   const router = useRouter();
 
   useEffect(() => {
-    axios.get("/api/products").then((res) => {
-      const uniqueCategories = [
-        "all",
-        ...new Set((res.data as any[]).map((p) => p.category).filter(Boolean)),
-      ] as string[];
+    axios
+      .get("/api/products")
+      .then((res) => {
+        const products = Array.isArray(res.data) ? res.data : [];
+        const uniqueCategories = [
+          "all",
+          ...new Set(products.map((p: any) => p?.category).filter(Boolean)),
+        ] as string[];
 
-      setCategories(uniqueCategories);
-    });
+        setCategories(uniqueCategories);
+      })
+      .catch(() => {
+        setCategories(["all"]);
+      });
   }, []);
 
   return (

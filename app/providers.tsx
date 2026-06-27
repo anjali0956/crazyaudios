@@ -53,9 +53,14 @@ function Navbar() {
 
   // ✅ Fetch products once
   useEffect(() => {
-    axios.get("/api/products").then((res) => {
-      setProducts(res.data);
-    });
+    axios
+      .get("/api/products")
+      .then((res) => {
+        setProducts(Array.isArray(res.data) ? res.data : []);
+      })
+      .catch(() => {
+        setProducts([]);
+      });
   }, []);
 
   // ✅ Filter suggestions
@@ -178,9 +183,15 @@ function Navbar() {
 
 export default function Providers({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
+  const hideNavbar = pathname === "/preview";
 
   useEffect(() => {
-    if (!pathname || pathname.startsWith("/admin") || pathname.startsWith("/api")) {
+    if (
+      !pathname ||
+      pathname === "/preview" ||
+      pathname.startsWith("/admin") ||
+      pathname.startsWith("/api")
+    ) {
       return;
     }
 
@@ -197,7 +208,7 @@ export default function Providers({ children }: { children: React.ReactNode }) {
   return (
     <SessionProvider>
       <CategoryProvider>
-        <Navbar />
+        {!hideNavbar ? <Navbar /> : null}
         {children}
       </CategoryProvider>
     </SessionProvider>
