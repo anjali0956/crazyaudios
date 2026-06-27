@@ -8,6 +8,29 @@ import { useEffect, useState } from "react";
 import axios from "axios";
 import { useRouter, usePathname } from "next/navigation";
 
+const safeLocalStorage = {
+  get(key: string) {
+    try {
+      return window.localStorage.getItem(key);
+    } catch {
+      return null;
+    }
+  },
+  set(key: string, value: string) {
+    try {
+      window.localStorage.setItem(key, value);
+    } catch {}
+  },
+};
+
+const createVisitorId = () => {
+  if (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function") {
+    return crypto.randomUUID();
+  }
+
+  return `visitor-${Date.now()}-${Math.random().toString(36).slice(2, 12)}`;
+};
+
 function Navbar() {
   const { data: session } = useSession();
 
@@ -19,12 +42,12 @@ function Navbar() {
 
   const updateSearch = (value: string) => {
     setSearch(value);
-    localStorage.setItem("search", value);
+    safeLocalStorage.set("search", value);
     window.dispatchEvent(new Event("searchUpdate"));
   };
 
   useEffect(() => {
-    const savedSearch = localStorage.getItem("search") || "";
+    const savedSearch = safeLocalStorage.get("search") || "";
     setSearch(savedSearch);
   }, []);
 
@@ -90,7 +113,11 @@ function Navbar() {
                   className="flex items-center gap-3 px-4 py-2 hover:bg-gray-200 cursor-pointer border-b last:border-none"
                 >
                   <div className="relative w-10 h-10">
-                    <img src={item.image} className="w-10 h-10 object-contain" />
+                    <img
+                      src={String(item.image || "").trim() || "/logo.png"}
+                      alt={item.name}
+                      className="w-10 h-10 object-contain"
+                    />
                     <img
                       src="/emblems/ca-certified.svg"
                       alt="Crazy Audios emblem"
@@ -157,11 +184,11 @@ export default function Providers({ children }: { children: React.ReactNode }) {
       return;
     }
 
-    let visitorId = localStorage.getItem("trafficVisitorId");
+    let visitorId = safeLocalStorage.get("trafficVisitorId");
 
     if (!visitorId) {
-      visitorId = crypto.randomUUID();
-      localStorage.setItem("trafficVisitorId", visitorId);
+      visitorId = createVisitorId();
+      safeLocalStorage.set("trafficVisitorId", visitorId);
     }
 
     axios.post("/api/traffic", { path: pathname, visitorId }).catch(() => {});

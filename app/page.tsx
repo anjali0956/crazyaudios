@@ -10,6 +10,21 @@ import formatCategoryName from "@/lib/formatCategoryName";
 import { getDisplayPrice } from "@/lib/order-utils";
 import shouldShowCaEmblem from "@/lib/shouldShowCaEmblem";
 
+const browserStorage = {
+  get(key: string) {
+    try {
+      return window.localStorage.getItem(key);
+    } catch {
+      return null;
+    }
+  },
+  set(key: string, value: string) {
+    try {
+      window.localStorage.setItem(key, value);
+    } catch {}
+  },
+};
+
 type Product = {
   _id: string;
   name: string;
@@ -113,7 +128,7 @@ export default function Home() {
 
   useEffect(() => {
     const handleSearch = () => {
-      const value = localStorage.getItem("search") || "";
+      const value = browserStorage.get("search") || "";
       setSearch(value);
     };
     window.addEventListener("searchUpdate", handleSearch);
@@ -141,7 +156,7 @@ export default function Home() {
     event.preventDefault();
     event.stopPropagation();
 
-    const storedCart = JSON.parse(localStorage.getItem("cart") || "[]");
+    const storedCart = JSON.parse(browserStorage.get("cart") || "[]");
     const { inclusiveFinalPrice, inclusiveBasePrice } = getDisplayPrice(
       product.price,
       product.discountPercentage || 0,
@@ -169,7 +184,7 @@ export default function Home() {
       });
     }
 
-    localStorage.setItem("cart", JSON.stringify(storedCart));
+    browserStorage.set("cart", JSON.stringify(storedCart));
     alert("Added to cart!");
   };
 
