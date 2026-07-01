@@ -138,6 +138,8 @@ export async function POST(req: Request) {
     );
 
     const amountInPaise = Math.round(totals.totalAmount * 100);
+    const receipt = buildReceipt();
+    const invoiceNumber = buildInvoiceNumber();
 
     if (amountInPaise < 100) {
       return NextResponse.json(
@@ -147,8 +149,6 @@ export async function POST(req: Request) {
     }
 
     const razorpay = getRazorpayClient();
-    const receipt = buildReceipt();
-    const invoiceNumber = buildInvoiceNumber();
 
     const razorpayOrder = await razorpay.orders.create({
       amount: amountInPaise,

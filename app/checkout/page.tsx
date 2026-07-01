@@ -274,7 +274,7 @@ export default function CheckoutPage() {
           shipping_city: shipping.city,
           shipping_state: shipping.state,
           shipping_pincode: shipping.pincode,
-          courier_name: shippingQuote.courierName,
+          courier_name: shippingQuote?.courierName || "",
         },
         theme: {
           color: "#000000",

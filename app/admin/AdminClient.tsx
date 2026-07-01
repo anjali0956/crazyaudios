@@ -320,14 +320,17 @@ export default function AdminClient() {
 
     return [
       "FROM",
-      "CRAZYAUDIOS",
-      "Thanissery, Irinjalakuda, Thrissur, Kerala - 680121",
+      "ELECTROSUPPLY",
+      "NAKKARA COMPLEX",
+      "Town Hall Road",
+      "Irinjalakuda, Thrissur, Kerala",
+      "PIN - 680121",
       "",
       "TO",
       address.name,
-      address.phone,
       address.address,
       `${address.city}, ${address.state} - ${address.pincode}`,
+      address.phone,
       "",
       `ORDER ID: ${order.receipt}`,
     ]
@@ -365,10 +368,11 @@ export default function AdminClient() {
     }
   };
 
-  const printShippingLabel = (order: Order) => {
-    const labelText = formatShippingLabel(order);
-    if (!labelText) {
-      alert("Shipping label is not available for this order");
+  const printShippingLabels = (ordersToPrint: Order[], labelsPerPage?: 4 | 8) => {
+    const validOrders = ordersToPrint.filter((order) => formatShippingLabel(order));
+
+    if (validOrders.length === 0) {
+      alert("Shipping label is not available for these orders");
       return;
     }
 
@@ -378,16 +382,47 @@ export default function AdminClient() {
       return;
     }
 
-    const escapedLabel = labelText
-      .replace(/&/g, "&amp;")
-      .replace(/</g, "&lt;")
-      .replace(/>/g, "&gt;");
+    const resolvedLabelsPerPage: 1 | 4 | 8 =
+      validOrders.length <= 1 ? 1 : labelsPerPage === 8 ? 8 : 4;
+
+    const printableOrders = validOrders.slice(0, resolvedLabelsPerPage);
+
+    const escapedLabels = printableOrders.map((order) =>
+      formatShippingLabel(order)
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+    );
+
+    const sheetClassName =
+      resolvedLabelsPerPage === 8
+        ? "sheet sheet-8"
+        : resolvedLabelsPerPage === 4
+          ? "sheet sheet-4"
+          : "sheet sheet-1";
+    const labelClassName =
+      resolvedLabelsPerPage === 8
+        ? "label label-8"
+        : resolvedLabelsPerPage === 4
+          ? "label label-4"
+          : "label label-1";
+
+    const labelsMarkup = escapedLabels
+      .map(
+        (escapedLabel) => `
+      <div class="${labelClassName}">
+        <div class="heading">ELECTROSUPPLY</div>
+        <div class="content">${escapedLabel}</div>
+        <div class="footer">ElectroSupply - Shipping label</div>
+      </div>`
+      )
+      .join("");
 
     printWindow.document.write(`<!DOCTYPE html>
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <title>Shipping Label - ${order.receipt}</title>
+    <title>Shipping Labels</title>
     <style>
       @page {
         size: A4 portrait;
@@ -404,24 +439,50 @@ export default function AdminClient() {
         width: 100%;
         min-height: calc(297mm - 20mm);
         display: grid;
+        align-content: start;
+      }
+      .sheet-1 {
+        grid-template-columns: 1fr;
+        gap: 0;
+      }
+      .sheet-4 {
         grid-template-columns: 1fr 1fr;
         grid-template-rows: 1fr 1fr;
         gap: 8mm;
       }
+      .sheet-8 {
+        grid-template-columns: 1fr 1fr;
+        grid-template-rows: repeat(4, 1fr);
+        gap: 4mm;
+      }
       .label {
         width: 100%;
-        min-height: 130mm;
         border: 2px solid #111111;
-        padding: 8mm 7mm;
         display: flex;
         flex-direction: column;
-        justify-content: space-between;
+        justify-content: flex-start;
+      }
+      .label-1 {
+        min-height: 92mm;
+        padding: 8mm 7mm;
+      }
+      .label-4 {
+        min-height: 92mm;
+        padding: 8mm 7mm;
+      }
+      .label-8 {
+        min-height: 42mm;
+        padding: 4mm 4.5mm;
       }
       .heading {
         font-size: 13pt;
         font-weight: 700;
         letter-spacing: 0.12em;
-        margin-bottom: 4mm;
+        margin-bottom: 1.5mm;
+      }
+      .label-8 .heading {
+        font-size: 10pt;
+        margin-bottom: 1mm;
       }
       .content {
         white-space: pre-wrap;
@@ -429,35 +490,24 @@ export default function AdminClient() {
         line-height: 1.35;
         font-weight: 600;
       }
+      .label-8 .content {
+        font-size: 8pt;
+        line-height: 1.15;
+      }
       .footer {
-        margin-top: 4mm;
+        margin-top: 3mm;
         font-size: 8pt;
         color: #444444;
+      }
+      .label-8 .footer {
+        margin-top: 1.5mm;
+        font-size: 6.5pt;
       }
     </style>
   </head>
   <body>
-    <div class="sheet">
-      <div class="label">
-        <div class="heading">CRAZYAUDIOS</div>
-        <div class="content">${escapedLabel}</div>
-        <div class="footer">CrazyAudios - Print ready shipping label</div>
-      </div>
-      <div class="label">
-        <div class="heading">CRAZYAUDIOS</div>
-        <div class="content">${escapedLabel}</div>
-        <div class="footer">CrazyAudios - Print ready shipping label</div>
-      </div>
-      <div class="label">
-        <div class="heading">CRAZYAUDIOS</div>
-        <div class="content">${escapedLabel}</div>
-        <div class="footer">CrazyAudios - Print ready shipping label</div>
-      </div>
-      <div class="label">
-        <div class="heading">CRAZYAUDIOS</div>
-        <div class="content">${escapedLabel}</div>
-        <div class="footer">CrazyAudios - Print ready shipping label</div>
-      </div>
+    <div class="${sheetClassName}">
+      ${labelsMarkup}
     </div>
     <script>
       window.onload = function () {
@@ -468,6 +518,10 @@ export default function AdminClient() {
   </body>
 </html>`);
     printWindow.document.close();
+  };
+
+  const printShippingLabel = (order: Order) => {
+    printShippingLabels([order]);
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -619,6 +673,11 @@ export default function AdminClient() {
     (safeCurrentProductPage - 1) * PRODUCTS_PER_PAGE,
     safeCurrentProductPage * PRODUCTS_PER_PAGE
   );
+  const readyToShipOrders = orders.filter((order) =>
+    ["packed", "shipped", "out_for_delivery"].includes(
+      String(order.fulfillmentStatus || "").toLowerCase()
+    )
+  );
 
   return (
     <main className="min-h-screen bg-gray-200 p-10 text-black">
@@ -676,12 +735,28 @@ export default function AdminClient() {
                   Review paid orders in a cleaner table, then open one order at a time for address and fulfillment updates.
                 </p>
               </div>
-              <button
-                onClick={fetchOrders}
-                className="self-start rounded-lg bg-black px-4 py-2 text-white"
-              >
-                Refresh Orders
-              </button>
+              <div className="flex flex-wrap gap-2">
+                <button
+                  onClick={() => printShippingLabels(readyToShipOrders, 4)}
+                  disabled={readyToShipOrders.length === 0}
+                  className="self-start rounded-lg bg-blue-700 px-4 py-2 text-white disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  Print Ready Labels 4/Page ({Math.min(readyToShipOrders.length, 4)})
+                </button>
+                <button
+                  onClick={() => printShippingLabels(readyToShipOrders, 8)}
+                  disabled={readyToShipOrders.length <= 1}
+                  className="self-start rounded-lg bg-indigo-700 px-4 py-2 text-white disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  Print Ready Labels 8/Page ({Math.min(readyToShipOrders.length, 8)})
+                </button>
+                <button
+                  onClick={fetchOrders}
+                  className="self-start rounded-lg bg-black px-4 py-2 text-white"
+                >
+                  Refresh Orders
+                </button>
+              </div>
             </div>
 
             {ordersLoading ? (
