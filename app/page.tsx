@@ -55,20 +55,33 @@ export default function Home() {
   useEffect(() => {
     setSelectedCategory("all");
 
-    axios.get("/api/products").then((res) => {
-      setProducts(res.data);
-    });
-
-    axios.get("/api/settings").then((res) => {
-      setHomepageBanners({
-        left:
-          String(res.data?.homepageBanners?.left || "").trim() ||
-          "/banners/crazyaudios-banner-left.svg",
-        right:
-          String(res.data?.homepageBanners?.right || "").trim() ||
-          "/banners/crazyaudios-banner-right.svg",
+    axios
+      .get("/api/products")
+      .then((res) => {
+        setProducts(Array.isArray(res.data) ? res.data : []);
+      })
+      .catch(() => {
+        setProducts([]);
       });
-    });
+
+    axios
+      .get("/api/settings")
+      .then((res) => {
+        setHomepageBanners({
+          left:
+            String(res.data?.homepageBanners?.left || "").trim() ||
+            "/banners/crazyaudios-banner-left.svg",
+          right:
+            String(res.data?.homepageBanners?.right || "").trim() ||
+            "/banners/crazyaudios-banner-right.svg",
+        });
+      })
+      .catch(() => {
+        setHomepageBanners({
+          left: "/banners/crazyaudios-banner-left.svg",
+          right: "/banners/crazyaudios-banner-right.svg",
+        });
+      });
   }, [setSelectedCategory]);
 
   const featuredProducts = useMemo(

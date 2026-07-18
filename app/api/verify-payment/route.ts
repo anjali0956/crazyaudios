@@ -3,8 +3,6 @@ import { NextResponse } from "next/server";
 import dbConnect from "@/lib/mongodb";
 import Order from "@/models/Order";
 import Product from "@/models/Product";
-import { generateInvoicePdf } from "@/lib/invoice-pdf";
-import { sendOrderConfirmationEmail } from "@/lib/mailer";
 
 export async function POST(req: Request) {
   try {
@@ -50,9 +48,7 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "Order mismatch" }, { status: 400 });
     }
 
-    const isFirstSuccessfulPayment = order.status !== "paid";
-
-    if (isFirstSuccessfulPayment) {
+    if (order.status !== "paid") {
       for (const item of order.items) {
         const updatedProduct = await Product.findOneAndUpdate(
           { _id: item.productId, stock: { $gte: item.quantity } },
@@ -81,34 +77,11 @@ export async function POST(req: Request) {
     }
     await order.save();
 
-    let emailSent = false;
-    let emailError = "";
-
-    if (isFirstSuccessfulPayment) {
-      try {
-        const pdfBytes = await generateInvoicePdf(order.toObject());
-        await sendOrderConfirmationEmail({
-          to: order.customerEmail,
-          customerName: order.customerName,
-          receipt: order.receipt,
-          invoiceNumber: order.invoiceNumber,
-          totalAmount: order.totalAmount,
-          invoicePdf: pdfBytes,
-        });
-        emailSent = true;
-      } catch (error: any) {
-        emailError = error?.message || "Failed to send confirmation email";
-        console.error("Order confirmation email failed:", error);
-      }
-    }
-
     return NextResponse.json({
       success: true,
       orderId: String(order._id),
       receipt: order.receipt,
       invoiceNumber: order.invoiceNumber,
-      emailSent,
-      ...(emailError ? { emailError } : {}),
     });
   } catch (error: any) {
     return NextResponse.json(
