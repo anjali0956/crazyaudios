@@ -98,6 +98,8 @@ export default function AdminClient() {
   const [price, setPrice] = useState("");
   const [image, setImage] = useState("");
   const [extraImages, setExtraImages] = useState("");
+  const [imageUploading, setImageUploading] = useState(false);
+  const [extraImagesUploading, setExtraImagesUploading] = useState(false);
   const [stock, setStock] = useState("");
   const [category, setCategory] = useState("");
   const [weightGrams, setWeightGrams] = useState("");
@@ -272,6 +274,63 @@ export default function AdminClient() {
         [field]: value,
       },
     }));
+  };
+
+  const uploadProductImages = async (files: FileList | File[]) => {
+    const fileArray = Array.from(files || []);
+
+    if (fileArray.length === 0) {
+      return [] as string[];
+    }
+
+    const formData = new FormData();
+    fileArray.forEach((file) => formData.append("files", file));
+
+    const res = await axios.post("/api/admin/upload-image", formData, {
+      headers: {
+        "Content-Type": "multipart/form-data",
+      },
+    });
+
+    return Array.isArray(res.data?.files) ? res.data.files : [];
+  };
+
+  const handlePrimaryImageUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const files = event.target.files;
+    if (!files || files.length === 0) return;
+
+    try {
+      setImageUploading(true);
+      const uploadedFiles = await uploadProductImages(files);
+      if (uploadedFiles[0]) {
+        setImage(uploadedFiles[0]);
+      }
+    } catch (error: any) {
+      alert(error?.response?.data?.error || error?.message || "Could not upload image");
+    } finally {
+      setImageUploading(false);
+      event.target.value = "";
+    }
+  };
+
+  const handleExtraImagesUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const files = event.target.files;
+    if (!files || files.length === 0) return;
+
+    try {
+      setExtraImagesUploading(true);
+      const uploadedFiles = await uploadProductImages(files);
+      if (uploadedFiles.length > 0) {
+        setExtraImages((prev) =>
+          [...prev.split("\n").map((item) => item.trim()).filter(Boolean), ...uploadedFiles].join("\n")
+        );
+      }
+    } catch (error: any) {
+      alert(error?.response?.data?.error || error?.message || "Could not upload extra images");
+    } finally {
+      setExtraImagesUploading(false);
+      event.target.value = "";
+    }
   };
 
   const updateOrderTracking = async (orderId: string) => {
@@ -1200,6 +1259,20 @@ export default function AdminClient() {
             value={image}
             onChange={(e) => setImage(e.target.value)}
           />
+          <label className="block rounded border border-dashed border-gray-300 p-3 text-sm text-gray-700">
+            <span className="mb-2 block font-medium">Upload main product image</span>
+            <input
+              type="file"
+              accept="image/*"
+              onChange={handlePrimaryImageUpload}
+              className="w-full"
+            />
+            <span className="mt-2 block text-xs text-gray-500">
+              {imageUploading
+                ? "Uploading image..."
+                : "Select an image from this device. The uploaded path will be filled automatically."}
+            </span>
+          </label>
           <textarea
             placeholder="Extra Image URLs (one per line)"
             className="w-full border p-2"
@@ -1207,6 +1280,21 @@ export default function AdminClient() {
             onChange={(e) => setExtraImages(e.target.value)}
             rows={4}
           />
+          <label className="block rounded border border-dashed border-gray-300 p-3 text-sm text-gray-700">
+            <span className="mb-2 block font-medium">Upload extra product images</span>
+            <input
+              type="file"
+              accept="image/*"
+              multiple
+              onChange={handleExtraImagesUpload}
+              className="w-full"
+            />
+            <span className="mt-2 block text-xs text-gray-500">
+              {extraImagesUploading
+                ? "Uploading extra images..."
+                : "Choose one or more images. Their uploaded paths will be added automatically."}
+            </span>
+          </label>
           <input
             placeholder="Stock"
             className="w-full border p-2"
