@@ -1,9 +1,8 @@
 import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
-import { mkdir, writeFile } from "fs/promises";
-import path from "path";
-import crypto from "crypto";
 import { authOptions } from "@/app/api/auth/[...nextauth]/route";
+import dbConnect from "@/lib/mongodb";
+import UploadAsset from "@/models/UploadAsset";
 
 export const runtime = "nodejs";
 
@@ -14,26 +13,7 @@ const ALLOWED_TYPES = new Set([
   "image/gif",
   "image/svg+xml",
 ]);
-
-function getSafeExtension(fileName: string, mimeType: string) {
-  const extFromName = path.extname(fileName || "").toLowerCase();
-  if (extFromName) return extFromName;
-
-  switch (mimeType) {
-    case "image/jpeg":
-      return ".jpg";
-    case "image/png":
-      return ".png";
-    case "image/webp":
-      return ".webp";
-    case "image/gif":
-      return ".gif";
-    case "image/svg+xml":
-      return ".svg";
-    default:
-      return ".bin";
-  }
-}
+const MAX_FILE_SIZE_BYTES = 5 * 1024 * 1024;
 
 export async function POST(req: Request) {
   try {
@@ -52,8 +32,7 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "No files uploaded" }, { status: 400 });
     }
 
-    const uploadDir = path.join(process.cwd(), "public", "uploads", "products");
-    await mkdir(uploadDir, { recursive: true });
+    await dbConnect();
 
     const uploadedFiles: string[] = [];
 
@@ -65,14 +44,24 @@ export async function POST(req: Request) {
         );
       }
 
+      if (file.size > MAX_FILE_SIZE_BYTES) {
+        return NextResponse.json(
+          { error: `File too large: ${file.name}. Max allowed size is 5MB.` },
+          { status: 400 }
+        );
+      }
+
       const arrayBuffer = await file.arrayBuffer();
       const buffer = Buffer.from(arrayBuffer);
-      const extension = getSafeExtension(file.name, file.type);
-      const fileName = `${Date.now()}-${crypto.randomUUID()}${extension}`;
-      const destination = path.join(uploadDir, fileName);
+      const asset = await UploadAsset.create({
+        fileName: file.name || "upload",
+        contentType: file.type,
+        data: buffer,
+        size: file.size,
+        uploadedBy: session.user?.email || "",
+      });
 
-      await writeFile(destination, buffer);
-      uploadedFiles.push(`/uploads/products/${fileName}`);
+      uploadedFiles.push(`/api/uploads/${asset._id}`);
     }
 
     return NextResponse.json({ files: uploadedFiles });
