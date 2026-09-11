@@ -10,6 +10,10 @@ import formatCategoryName from "@/lib/formatCategoryName";
 import { getDisplayPrice } from "@/lib/order-utils";
 import shouldShowCaEmblem from "@/lib/shouldShowCaEmblem";
 
+const CATEGORY_IMAGE_OVERRIDES: Record<string, string> = {
+  brainsaudios: "/brains-logo.svg",
+};
+
 const browserStorage = {
   get(key: string) {
     try {
@@ -103,15 +107,15 @@ export default function Home() {
       if (!existing) {
         categories.set(key, {
           category,
-          image: normalizedImage,
+          image: CATEGORY_IMAGE_OVERRIDES[key] || normalizedImage,
         });
         continue;
       }
 
-      if (!existing.image && normalizedImage) {
+      if (!existing.image && (CATEGORY_IMAGE_OVERRIDES[key] || normalizedImage)) {
         categories.set(key, {
           category: existing.category,
-          image: normalizedImage,
+          image: CATEGORY_IMAGE_OVERRIDES[key] || normalizedImage,
         });
       }
     }
