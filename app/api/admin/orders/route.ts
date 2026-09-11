@@ -26,7 +26,7 @@ export async function GET() {
 
     const orders = await Order.find({ status: "paid" })
       .sort({ createdAt: -1 })
-      .limit(100)
+      .limit(500)
       .lean();
 
     return NextResponse.json(orders);

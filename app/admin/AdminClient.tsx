@@ -59,6 +59,7 @@ type OrderItem = {
 type Order = {
   _id: string;
   receipt: string;
+  invoiceNumber: string;
   customerName: string;
   customerEmail: string;
   customerPhone: string;
@@ -72,6 +73,13 @@ type Order = {
   courierName?: string;
   trackingNumber?: string;
   estimatedDelivery?: string | null;
+  trackingTimeline?: {
+    status: string;
+    title: string;
+    description?: string;
+    location?: string;
+    createdAt?: string;
+  }[];
 };
 
 type OrderDraft = {
@@ -725,6 +733,17 @@ export default function AdminClient() {
   const maxDailyViews = Math.max(...recentDailyViews.map((day) => day.views), 1);
   const selectedOrder =
     orders.find((order) => order._id === selectedOrderId) || orders[0] || null;
+  const selectedCustomerOrderHistory = selectedOrder
+    ? orders.filter((order) => {
+        const selectedEmail = selectedOrder.customerEmail?.toLowerCase();
+        const selectedPhone = selectedOrder.customerPhone;
+
+        return (
+          Boolean(selectedEmail && order.customerEmail?.toLowerCase() === selectedEmail) ||
+          Boolean(selectedPhone && order.customerPhone === selectedPhone)
+        );
+      })
+    : [];
   const PRODUCTS_PER_PAGE = 20;
   const totalProductPages = Math.max(1, Math.ceil(filteredProducts.length / PRODUCTS_PER_PAGE));
   const safeCurrentProductPage = Math.min(currentProductPage, totalProductPages);
@@ -874,13 +893,21 @@ export default function AdminClient() {
                             : "-"}
                         </td>
                         <td className="px-4 py-3 text-right">
-                          <button
-                            type="button"
-                            onClick={() => setSelectedOrderId(order._id)}
-                            className="rounded-lg bg-blue-700 px-3 py-2 text-xs font-semibold text-white hover:bg-blue-800"
-                          >
-                            Open
-                          </button>
+                          <div className="flex justify-end gap-2">
+                            <a
+                              href={`/api/orders/${order._id}/invoice`}
+                              className="rounded-lg border border-gray-300 px-3 py-2 text-xs font-semibold text-gray-700 hover:bg-gray-50"
+                            >
+                              Invoice
+                            </a>
+                            <button
+                              type="button"
+                              onClick={() => setSelectedOrderId(order._id)}
+                              className="rounded-lg bg-blue-700 px-3 py-2 text-xs font-semibold text-white hover:bg-blue-800"
+                            >
+                              Open
+                            </button>
+                          </div>
                         </td>
                       </tr>
                     ))}
@@ -910,6 +937,9 @@ export default function AdminClient() {
                           Selected Order
                         </p>
                         <h3 className="mt-1 text-2xl font-bold">{selectedOrder.receipt}</h3>
+                        <p className="mt-1 text-sm text-gray-600">
+                          Invoice: {selectedOrder.invoiceNumber}
+                        </p>
                         <p className="text-sm text-gray-600">
                           {selectedOrder.customerName} • {selectedOrder.customerEmail} • {selectedOrder.customerPhone}
                         </p>
@@ -930,6 +960,12 @@ export default function AdminClient() {
                         <p className="text-lg font-bold text-gray-900">
                           {formatCurrency(selectedOrder.totalAmount)}
                         </p>
+                        <a
+                          href={`/api/orders/${selectedOrder._id}/invoice`}
+                          className="rounded-lg bg-black px-4 py-2 text-xs font-semibold text-white hover:bg-gray-800"
+                        >
+                          Download Invoice
+                        </a>
                       </div>
                     </div>
 
@@ -1105,6 +1141,90 @@ export default function AdminClient() {
                       >
                         Save Tracking Update
                       </button>
+                    </div>
+
+                    <div className="mt-6 grid gap-4 lg:grid-cols-2">
+                      <div className="rounded-xl border border-gray-200 bg-white p-4">
+                        <h4 className="text-sm font-semibold uppercase tracking-wide text-gray-700">
+                          Order History for This Customer
+                        </h4>
+                        <div className="mt-3 overflow-x-auto">
+                          <table className="min-w-full text-sm">
+                            <thead>
+                              <tr className="border-b border-gray-200 text-left text-xs uppercase tracking-wide text-gray-500">
+                                <th className="pb-2 pr-3">Order</th>
+                                <th className="pb-2 pr-3">Date</th>
+                                <th className="pb-2 pr-3">Status</th>
+                                <th className="pb-2 text-right">Invoice</th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {selectedCustomerOrderHistory.map((order) => (
+                                <tr key={order._id} className="border-b border-gray-100 last:border-b-0">
+                                  <td className="py-3 pr-3">
+                                    <button
+                                      type="button"
+                                      onClick={() => setSelectedOrderId(order._id)}
+                                      className="font-semibold text-blue-700 hover:text-blue-900"
+                                    >
+                                      {order.receipt}
+                                    </button>
+                                    <p className="text-xs text-gray-500">{formatCurrency(order.totalAmount)}</p>
+                                  </td>
+                                  <td className="py-3 pr-3 text-gray-600">
+                                    {order.createdAt
+                                      ? new Date(order.createdAt).toLocaleDateString("en-IN")
+                                      : "-"}
+                                  </td>
+                                  <td className="py-3 pr-3 text-gray-700">
+                                    {formatFulfillmentStatus(order.fulfillmentStatus)}
+                                  </td>
+                                  <td className="py-3 text-right">
+                                    <a
+                                      href={`/api/orders/${order._id}/invoice`}
+                                      className="font-semibold text-gray-900 underline underline-offset-4"
+                                    >
+                                      {order.invoiceNumber}
+                                    </a>
+                                  </td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        </div>
+                      </div>
+
+                      <div className="rounded-xl border border-gray-200 bg-white p-4">
+                        <h4 className="text-sm font-semibold uppercase tracking-wide text-gray-700">
+                          Tracking History
+                        </h4>
+                        <div className="mt-3 space-y-3">
+                          {(selectedOrder.trackingTimeline || []).length === 0 ? (
+                            <p className="text-sm text-gray-500">No tracking updates recorded yet.</p>
+                          ) : (
+                            [...(selectedOrder.trackingTimeline || [])]
+                              .reverse()
+                              .map((event, index) => (
+                                <div key={`${event.createdAt || index}-${event.status}`} className="rounded-lg bg-gray-50 p-3">
+                                  <div className="flex flex-col gap-1 sm:flex-row sm:items-start sm:justify-between">
+                                    <p className="font-semibold text-gray-900">
+                                      {event.title || formatFulfillmentStatus(event.status)}
+                                    </p>
+                                    <p className="text-xs text-gray-500">
+                                      {event.createdAt ? new Date(event.createdAt).toLocaleString("en-IN") : ""}
+                                    </p>
+                                  </div>
+                                  {event.description ? (
+                                    <p className="mt-1 text-sm text-gray-600">{event.description}</p>
+                                  ) : null}
+                                  {event.location ? (
+                                    <p className="mt-1 text-xs font-medium text-gray-500">{event.location}</p>
+                                  ) : null}
+                                </div>
+                              ))
+                          )}
+                        </div>
+                      </div>
                     </div>
                   </>
                 );

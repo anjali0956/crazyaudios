@@ -554,7 +554,7 @@ export default function Home() {
               Got Questions? Call us between 9:15 AM to 6:15 PM Monday-Saturday
             </p>
 
-            <p className="mt-2 font-semibold text-white">+91-9656006900</p>
+            <p className="mt-2 font-semibold text-white">+91-7907570000</p>
 
             <div className="mt-6">
               <h3 className="font-semibold mb-3">Policies</h3>

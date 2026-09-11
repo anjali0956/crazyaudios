@@ -56,10 +56,11 @@ export async function GET(
       return NextResponse.json({ error: "Order not found" }, { status: 404 });
     }
 
-    if (
-      order.status !== "paid" ||
-      (order.userEmail !== session.user.email && order.customerEmail !== session.user.email)
-    ) {
+    const isAdmin = session.user.role === "admin";
+    const isOrderOwner =
+      order.userEmail === session.user.email || order.customerEmail === session.user.email;
+
+    if (order.status !== "paid" || (!isAdmin && !isOrderOwner)) {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 
@@ -93,6 +94,25 @@ export async function GET(
       }
       return currentY;
     };
+
+    const drawRightAlignedText = (
+      text: string,
+      rightEdge: number,
+      textY: number,
+      size = 10,
+      textFont = font
+    ) => {
+      const textWidth = textFont.widthOfTextAtSize(text, size);
+      page.drawText(text, {
+        x: rightEdge - textWidth,
+        y: textY,
+        size,
+        font: textFont,
+        color: rgb(0, 0, 0),
+      });
+    };
+
+    const formatAmount = (value: unknown) => `Rs ${roundCurrency(Number(value || 0))}`;
 
     let y = 790;
     page.drawText("CrazyAudios Invoice", {
@@ -147,11 +167,20 @@ export async function GET(
 
     page.drawText("Items", { x: 50, y, size: 13, font: boldFont });
     y -= 20;
-    page.drawText("Product", { x: leftX, y, size: 11, font: boldFont });
-    page.drawText("Qty", { x: 390, y, size: 11, font: boldFont });
-    page.drawText("Unit Price (Incl. GST)", { x: 430, y, size: 11, font: boldFont });
-    page.drawText("Line Total", { x: 510, y, size: 11, font: boldFont });
-    y -= 12;
+
+    const qtyRightX = 390;
+    const unitPriceRightX = 475;
+    const lineTotalRightX = pageWidth - leftX;
+    const productColumnWidth = 325;
+
+    page.drawText("Product", { x: leftX, y, size: 10, font: boldFont });
+    drawRightAlignedText("Qty", qtyRightX, y, 10, boldFont);
+    drawRightAlignedText("Unit Price", unitPriceRightX, y, 10, boldFont);
+    drawRightAlignedText("Line Total", lineTotalRightX, y, 10, boldFont);
+    y -= 11;
+    drawRightAlignedText("(Incl. GST)", unitPriceRightX, y, 8, boldFont);
+    drawRightAlignedText("(Incl. GST)", lineTotalRightX, y, 8, boldFont);
+    y -= 10;
 
     page.drawLine({
       start: { x: leftX, y },
@@ -162,7 +191,7 @@ export async function GET(
     y -= 16;
 
     for (const item of order.items) {
-      const itemLines = wrapText(String(item.name || ""), 325, font, 10);
+      const itemLines = wrapText(String(item.name || ""), productColumnWidth, font, 10);
       const itemStartY = y;
       let itemY = y;
 
@@ -171,9 +200,9 @@ export async function GET(
         itemY -= 14;
       }
 
-      page.drawText(String(item.quantity), { x: 395, y: itemStartY, size: 10, font });
-      page.drawText(`Rs ${item.unitPrice}`, { x: 432, y: itemStartY, size: 10, font });
-      page.drawText(`Rs ${item.lineTotal}`, { x: 510, y: itemStartY, size: 10, font });
+      drawRightAlignedText(String(item.quantity), qtyRightX, itemStartY, 10, font);
+      drawRightAlignedText(formatAmount(item.unitPrice), unitPriceRightX, itemStartY, 10, font);
+      drawRightAlignedText(formatAmount(item.lineTotal), lineTotalRightX, itemStartY, 10, font);
 
       y = itemY - 6;
     }

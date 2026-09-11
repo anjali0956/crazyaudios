@@ -13,7 +13,7 @@ export default function ContactUsPage() {
 
       <section>
         <h2 className="text-xl font-semibold text-gray-900">Phone</h2>
-        <p className="mt-2">+91-9656006900</p>
+        <p className="mt-2">+91-7907570000</p>
       </section>
 
       <section>
