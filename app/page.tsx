@@ -14,6 +14,18 @@ const CATEGORY_IMAGE_OVERRIDES: Record<string, string> = {
   brainsaudios: "/brains-logo.svg",
 };
 
+function normalizeBannerPath(value: string, fallback: string) {
+  const trimmed = String(value || "").trim();
+  if (!trimmed) return fallback;
+  if (trimmed.startsWith("http://") || trimmed.startsWith("https://") || trimmed.startsWith("/")) {
+    return trimmed;
+  }
+  if (/\.(svg|png|jpe?g|webp|gif)$/i.test(trimmed)) {
+    return `/banners/${trimmed}`;
+  }
+  return `/banners/${trimmed}.jpg`;
+}
+
 const browserStorage = {
   get(key: string) {
     try {
@@ -53,8 +65,14 @@ export default function Home() {
     left: "/banners/crazyaudios-banner-left.svg",
     right: "/banners/crazyaudios-banner-right.svg",
   });
-  const normalizedHomepageBannerLeft = String(homepageBanners.left || "").trim();
-  const normalizedHomepageBannerRight = String(homepageBanners.right || "").trim();
+  const normalizedHomepageBannerLeft = normalizeBannerPath(
+    homepageBanners.left,
+    "/banners/crazyaudios-banner-left.svg"
+  );
+  const normalizedHomepageBannerRight = normalizeBannerPath(
+    homepageBanners.right,
+    "/banners/crazyaudios-banner-right.svg"
+  );
 
   useEffect(() => {
     setSelectedCategory("all");
@@ -72,12 +90,14 @@ export default function Home() {
       .get("/api/settings")
       .then((res) => {
         setHomepageBanners({
-          left:
-            String(res.data?.homepageBanners?.left || "").trim() ||
-            "/banners/crazyaudios-banner-left.svg",
-          right:
-            String(res.data?.homepageBanners?.right || "").trim() ||
-            "/banners/crazyaudios-banner-right.svg",
+          left: normalizeBannerPath(
+            res.data?.homepageBanners?.left,
+            "/banners/crazyaudios-banner-left.svg"
+          ),
+          right: normalizeBannerPath(
+            res.data?.homepageBanners?.right,
+            "/banners/crazyaudios-banner-right.svg"
+          ),
         });
       })
       .catch(() => {

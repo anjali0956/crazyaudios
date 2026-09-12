@@ -121,6 +121,7 @@ export default function AdminClient() {
 
   const [homeBannerLeft, setHomeBannerLeft] = useState("/banners/crazyaudios-banner-left.svg");
   const [homeBannerRight, setHomeBannerRight] = useState("/banners/crazyaudios-banner-right.svg");
+  const [homeBannerUploading, setHomeBannerUploading] = useState<"left" | "right" | null>(null);
 
   const [selectedCategoryFilter, setSelectedCategoryFilter] = useState("All");
   const [stockFilter, setStockFilter] = useState<"all" | "in" | "low" | "out">("all");
@@ -339,6 +340,31 @@ export default function AdminClient() {
       alert(error?.response?.data?.error || error?.message || "Could not upload extra images");
     } finally {
       setExtraImagesUploading(false);
+      event.target.value = "";
+    }
+  };
+
+  const handleHomepageBannerUpload = async (
+    side: "left" | "right",
+    event: React.ChangeEvent<HTMLInputElement>
+  ) => {
+    const files = event.target.files;
+    if (!files || files.length === 0) return;
+
+    try {
+      setHomeBannerUploading(side);
+      const uploadedFiles = await uploadProductImages(files);
+      if (uploadedFiles[0]) {
+        if (side === "left") {
+          setHomeBannerLeft(uploadedFiles[0]);
+        } else {
+          setHomeBannerRight(uploadedFiles[0]);
+        }
+      }
+    } catch (error: any) {
+      alert(error?.response?.data?.error || error?.message || "Could not upload banner");
+    } finally {
+      setHomeBannerUploading(null);
       event.target.value = "";
     }
   };
@@ -1527,12 +1553,40 @@ export default function AdminClient() {
             onChange={(e) => setHomeBannerLeft(e.target.value)}
             placeholder="Left banner image URL"
           />
+          <label className="block rounded border border-dashed border-gray-300 p-3 text-sm text-gray-700">
+            <span className="mb-2 block font-medium">Upload left homepage banner</span>
+            <input
+              type="file"
+              accept="image/*"
+              onChange={(event) => handleHomepageBannerUpload("left", event)}
+              className="w-full"
+            />
+            <span className="mt-2 block text-xs text-gray-500">
+              {homeBannerUploading === "left"
+                ? "Uploading left banner..."
+                : "The uploaded banner path will be filled automatically."}
+            </span>
+          </label>
           <input
             className="w-full border p-2"
             value={homeBannerRight}
             onChange={(e) => setHomeBannerRight(e.target.value)}
             placeholder="Right banner image URL"
           />
+          <label className="block rounded border border-dashed border-gray-300 p-3 text-sm text-gray-700">
+            <span className="mb-2 block font-medium">Upload right homepage banner</span>
+            <input
+              type="file"
+              accept="image/*"
+              onChange={(event) => handleHomepageBannerUpload("right", event)}
+              className="w-full"
+            />
+            <span className="mt-2 block text-xs text-gray-500">
+              {homeBannerUploading === "right"
+                ? "Uploading right banner..."
+                : "The uploaded banner path will be filled automatically."}
+            </span>
+          </label>
 
           <button onClick={saveHomepageBanners} className="w-full bg-black py-2 text-white">
             Save Homepage Banner

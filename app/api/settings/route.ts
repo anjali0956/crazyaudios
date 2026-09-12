@@ -9,6 +9,18 @@ const DEFAULT_BANNERS = {
   right: "/banners/crazyaudios-banner-right.svg",
 };
 
+function normalizeBannerPath(value: string) {
+  const trimmed = String(value || "").trim();
+  if (!trimmed) return "";
+  if (trimmed.startsWith("http://") || trimmed.startsWith("https://") || trimmed.startsWith("/")) {
+    return trimmed;
+  }
+  if (/\.(svg|png|jpe?g|webp|gif)$/i.test(trimmed)) {
+    return `/banners/${trimmed}`;
+  }
+  return `/banners/${trimmed}.jpg`;
+}
+
 async function getSiteSettings() {
   await dbConnect();
 
@@ -39,8 +51,8 @@ export async function PUT(req: Request) {
     }
 
     const body = await req.json();
-    const left = String(body?.homepageBanners?.left || "").trim();
-    const right = String(body?.homepageBanners?.right || "").trim();
+    const left = normalizeBannerPath(body?.homepageBanners?.left || "");
+    const right = normalizeBannerPath(body?.homepageBanners?.right || "");
 
     if (!left || !right) {
       return NextResponse.json(
