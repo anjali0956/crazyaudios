@@ -110,6 +110,7 @@ export default function AdminClient() {
   const [extraImagesUploading, setExtraImagesUploading] = useState(false);
   const [stock, setStock] = useState("");
   const [category, setCategory] = useState("");
+  const [isCreatingNewCategory, setIsCreatingNewCategory] = useState(false);
   const [weightGrams, setWeightGrams] = useState("");
   const [description, setDescription] = useState("");
   const [featured, setFeatured] = useState(false);
@@ -261,6 +262,7 @@ export default function AdminClient() {
     setExtraImages("");
     setStock("");
     setCategory("");
+    setIsCreatingNewCategory(false);
     setWeightGrams("");
     setDescription("");
     setFeatured(false);
@@ -602,6 +604,12 @@ export default function AdminClient() {
       .split("\n")
       .map((item) => item.trim())
       .filter((item) => item !== "");
+    const normalizedCategory = category.trim();
+
+    if (!normalizedCategory) {
+      alert("Please select or create a category before saving the product.");
+      return;
+    }
 
     if (editingId) {
       await axios.put("/api/products", {
@@ -611,7 +619,7 @@ export default function AdminClient() {
         image,
         extraImages: extraImageArray,
         stock: Number(stock),
-        category,
+        category: normalizedCategory,
         weightGrams: weightGrams.trim() === "" ? null : Number(weightGrams),
         description: descArray,
         featured,
@@ -625,7 +633,7 @@ export default function AdminClient() {
         image,
         extraImages: extraImageArray,
         stock: Number(stock),
-        category,
+        category: normalizedCategory,
         weightGrams: weightGrams.trim() === "" ? null : Number(weightGrams),
         description: descArray,
         featured,
@@ -652,6 +660,7 @@ export default function AdminClient() {
     setExtraImages(product.extraImages?.join("\n") || "");
     setStock(String(product.stock));
     setCategory(product.category);
+    setIsCreatingNewCategory(false);
     setWeightGrams(
       product.weightGrams === null || product.weightGrams === undefined
         ? ""
@@ -710,6 +719,7 @@ export default function AdminClient() {
   };
 
   const uniqueCategories = ["All", ...Array.from(new Set(products.map((p) => p.category).filter(Boolean)))];
+  const existingProductCategories = uniqueCategories.filter((cat) => cat !== "All");
   const filteredProducts = products.filter((p) => {
     const matchesCategory =
       selectedCategoryFilter === "All" || p.category === selectedCategoryFilter;
@@ -1421,12 +1431,41 @@ export default function AdminClient() {
             value={stock}
             onChange={(e) => setStock(e.target.value)}
           />
-          <input
-            placeholder="Category"
-            className="w-full border p-2"
-            value={category}
-            onChange={(e) => setCategory(e.target.value)}
-          />
+          <div className="space-y-2">
+            <select
+              className="w-full border p-2"
+              value={isCreatingNewCategory ? "__new__" : category}
+              onChange={(e) => {
+                if (e.target.value === "__new__") {
+                  setIsCreatingNewCategory(true);
+                  setCategory("");
+                  return;
+                }
+
+                setIsCreatingNewCategory(false);
+                setCategory(e.target.value);
+              }}
+              required={!isCreatingNewCategory}
+            >
+              <option value="">Select category</option>
+              {existingProductCategories.map((cat) => (
+                <option key={cat} value={cat}>
+                  {cat}
+                </option>
+              ))}
+              <option value="__new__">+ Create new category</option>
+            </select>
+
+            {isCreatingNewCategory ? (
+              <input
+                placeholder="New category name"
+                className="w-full border p-2"
+                value={category}
+                onChange={(e) => setCategory(e.target.value)}
+                required
+              />
+            ) : null}
+          </div>
           <input
             placeholder="Weight (grams)"
             className="w-full border p-2"
