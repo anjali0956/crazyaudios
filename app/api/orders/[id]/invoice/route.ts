@@ -115,14 +115,26 @@ export async function GET(
     const formatAmount = (value: unknown) => `Rs ${roundCurrency(Number(value || 0))}`;
 
     let y = 790;
-    page.drawText("CrazyAudios Invoice", {
+    page.drawText("ElectroSupply Invoice", {
       x: 50,
       y,
       size: 22,
       font: boldFont,
       color: rgb(0, 0, 0),
     });
-    y -= 35;
+    y -= 30;
+
+    const fromLines = [
+      "FROM",
+      "ELECTROSUPPLY",
+      "NAKKARA COMPLEX",
+      "Town Hall Road",
+      "Irinjalakuda, Thrissur, Kerala",
+      "PIN - 680121",
+    ];
+
+    y = drawWrappedBlock(fromLines, leftX, y, 10, font);
+    y -= 10;
 
     const info = [
       `Invoice Number: ${order.invoiceNumber}`,
@@ -144,17 +156,18 @@ export async function GET(
     });
     y -= 22;
 
-    page.drawText("Shipping Address", { x: leftX, y, size: 13, font: boldFont });
+    page.drawText("Billing Address", { x: leftX, y, size: 13, font: boldFont });
     y -= 20;
 
-    const shippingLines = [
-      order.shippingAddress.name,
-      order.shippingAddress.address,
-      `${order.shippingAddress.city}, ${order.shippingAddress.state} - ${order.shippingAddress.pincode}`,
-      `Phone: ${order.shippingAddress.phone}`,
+    const billingAddress = order.billingAddress || order.shippingAddress;
+    const billingLines = [
+      billingAddress?.name,
+      billingAddress?.address,
+      `${billingAddress?.city || ""}, ${billingAddress?.state || ""} - ${billingAddress?.pincode || ""}`,
+      `Phone: ${billingAddress?.phone || ""}`,
     ].flatMap((line) => wrapText(String(line || ""), contentWidth, font, 11));
 
-    y = drawWrappedBlock(shippingLines, leftX, y, 11, font);
+    y = drawWrappedBlock(billingLines, leftX, y, 11, font);
     y -= 10;
 
     page.drawLine({
