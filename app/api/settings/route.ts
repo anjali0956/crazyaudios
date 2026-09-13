@@ -6,12 +6,15 @@ import { authOptions } from "@/app/api/auth/[...nextauth]/route";
 
 const DEFAULT_BANNERS = {
   left: "/banners/crazyaudios-banner-left.svg",
-  right: "/banners/crazyaudios-banner-right.svg",
+  right: "/banners/original-products-banner.svg",
 };
 
 function normalizeBannerPath(value: string) {
   const trimmed = String(value || "").trim();
   if (!trimmed) return "";
+  if (trimmed.toLowerCase().includes("brainsbanner")) {
+    return "/banners/original-products-banner.svg";
+  }
   if (trimmed.startsWith("http://") || trimmed.startsWith("https://") || trimmed.startsWith("/")) {
     return trimmed;
   }

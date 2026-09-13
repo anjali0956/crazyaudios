@@ -17,6 +17,9 @@ const CATEGORY_IMAGE_OVERRIDES: Record<string, string> = {
 function normalizeBannerPath(value: string, fallback: string) {
   const trimmed = String(value || "").trim();
   if (!trimmed) return fallback;
+  if (trimmed.toLowerCase().includes("brainsbanner")) {
+    return "/banners/original-products-banner.svg";
+  }
   if (trimmed.startsWith("http://") || trimmed.startsWith("https://") || trimmed.startsWith("/")) {
     return trimmed;
   }
@@ -71,7 +74,7 @@ export default function Home() {
   );
   const normalizedHomepageBannerRight = normalizeBannerPath(
     homepageBanners.right,
-    "/banners/crazyaudios-banner-right.svg"
+    "/banners/original-products-banner.svg"
   );
 
   useEffect(() => {
@@ -96,7 +99,7 @@ export default function Home() {
           ),
           right: normalizeBannerPath(
             res.data?.homepageBanners?.right,
-            "/banners/crazyaudios-banner-right.svg"
+            "/banners/original-products-banner.svg"
           ),
         });
       })
@@ -439,28 +442,45 @@ export default function Home() {
         </div>
       </section>
 
-      <section className="px-4 pb-8 sm:px-6 lg:px-10 lg:pb-10">
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-          <Link href="/category/diode" className="relative block h-[160px] sm:h-[220px] md:h-[280px] rounded-lg overflow-hidden border border-gray-200 shadow-sm">
-            {normalizedHomepageBannerLeft ? (
-              <Image src={normalizedHomepageBannerLeft} alt="CrazyAudios promo banner 1" fill className="object-cover" />
-            ) : (
-              <div className="absolute inset-0 flex items-center justify-center bg-gray-100 text-sm font-medium text-gray-400">
-                Banner unavailable
-              </div>
-            )}
-          </Link>
-          <Link href="/category/brainsaudios" className="relative block h-[160px] sm:h-[220px] md:h-[280px] rounded-lg overflow-hidden border border-gray-200 shadow-sm">
-            {normalizedHomepageBannerRight ? (
-              <Image src={normalizedHomepageBannerRight} alt="CrazyAudios promo banner 2" fill className="object-cover" />
-            ) : (
-              <div className="absolute inset-0 flex items-center justify-center bg-gray-100 text-sm font-medium text-gray-400">
-                Banner unavailable
-              </div>
-            )}
-          </Link>
+<section className="px-4 pb-8 sm:px-6 lg:px-10 lg:pb-10">
+  <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+
+    {/* FIRST BANNER → DIODE CATEGORY */}
+    <Link href="/category/diode">
+      <div className="relative h-[160px] sm:h-[220px] md:h-[280px] rounded-lg overflow-hidden border border-gray-200 shadow-sm">
+        {normalizedHomepageBannerLeft ? (
+          <Image
+            src={normalizedHomepageBannerLeft}
+            alt="CrazyAudios promo banner 1"
+            fill
+            className="object-cover"
+          />
+        ) : (
+          <div className="absolute inset-0 flex items-center justify-center bg-gray-100 text-sm font-medium text-gray-400">
+            Banner unavailable
+          </div>
+        )}
+      </div>
+    </Link>
+
+    {/* SECOND BANNER */}
+    <div className="relative h-[160px] sm:h-[220px] md:h-[280px] rounded-lg overflow-hidden border border-gray-200 shadow-sm">
+      {normalizedHomepageBannerRight ? (
+        <Image
+          src={normalizedHomepageBannerRight}
+          alt="CrazyAudios promo banner 2"
+          fill
+          className="object-cover"
+        />
+      ) : (
+        <div className="absolute inset-0 flex items-center justify-center bg-gray-100 text-sm font-medium text-gray-400">
+          Banner unavailable
         </div>
-      </section>
+      )}
+    </div>
+
+  </div>
+</section>
 
       <section className="px-4 pb-8 sm:px-6 lg:px-10 lg:pb-10">
         <div className="rounded-lg border border-gray-200 bg-white p-4 shadow-sm md:p-7">
