@@ -340,7 +340,7 @@ export default function Home() {
                     <ProductImageWithEmblem
                       src={product.image}
                       alt={product.name}
-                      emblemSrc={shouldShowCaEmblem(product.category) ? undefined : ""}
+                      emblemSrc={shouldShowCaEmblem(product.category, product.name) ? undefined : ""}
                       emblemSize={50}
                       emblemClassName="top-1.5 right-1.5"
                     />

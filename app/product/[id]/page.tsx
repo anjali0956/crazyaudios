@@ -137,7 +137,7 @@ export default function ProductDetails() {
             <ProductImageWithEmblem
               src={activeImage}
               alt={product.name}
-              emblemSrc={shouldShowCaEmblem(product.category) ? undefined : ""}
+              emblemSrc={shouldShowCaEmblem(product.category, product.name) ? undefined : ""}
               emblemSize={102}
               className="rounded-lg object-contain"
               emblemClassName="top-3 right-3"
@@ -332,7 +332,7 @@ export default function ProductDetails() {
                       <ProductImageWithEmblem
                         src={relatedProduct.image}
                         alt={relatedProduct.name}
-                        emblemSrc={shouldShowCaEmblem(relatedProduct.category) ? undefined : ""}
+                        emblemSrc={shouldShowCaEmblem(relatedProduct.category, relatedProduct.name) ? undefined : ""}
                         emblemSize={50}
                         emblemClassName="top-1.5 right-1.5"
                       />
