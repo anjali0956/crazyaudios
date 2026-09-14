@@ -11,7 +11,7 @@ import { getDisplayPrice } from "@/lib/order-utils";
 import shouldShowCaEmblem from "@/lib/shouldShowCaEmblem";
 
 const CATEGORY_IMAGE_OVERRIDES: Record<string, string> = {
-  brainsaudios: "/brains-logo.svg",
+  brainsaudios: "/brains-logo.jpg",
 };
 
 function normalizeBannerPath(value: string, fallback: string) {
