@@ -595,7 +595,7 @@ export default function Home() {
             <p className="text-sm text-gray-400 mt-2">Your Ideas, Our Parts</p>
 
             <p className="text-sm mt-4 text-gray-400">
-              Got Questions? Call us between 9:15 AM to 6:15 PM Monday-Saturday
+              Got Questions? Contact us between 9:15 AM to 6:15 PM Monday-Saturday
             </p>
 
             <p className="mt-2 font-semibold text-white">+91-7907570000(WhatsApp Messages Only)</p>
@@ -648,7 +648,7 @@ export default function Home() {
         </div>
 
         <div className="text-center text-sm text-gray-400 mt-10 pb-6">
-          <p>Contact: craudyaudios@gmail.com</p>
+          {/* <p>Contact: craudyaudios@gmail.com</p> */}
           <p className="mt-1">Made with love by rat</p>
         </div>
       </footer>
