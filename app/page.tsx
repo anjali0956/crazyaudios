@@ -568,21 +568,21 @@ export default function Home() {
                 Join our growing marketplace of audio enthusiasts. List your gear, reach more buyers,
                 and grow your brand with us.
               </p>
-              <p className="mt-3 text-sm font-medium text-orange-300 sm:text-[15px]">
+              {/* <p className="mt-3 text-sm font-medium text-orange-300 sm:text-[15px]">
                 If you&apos;re interested, mail us at{" "}
                 <a href="mailto:crazyaudios@gmail.com" className="font-semibold text-white underline decoration-orange-400 underline-offset-4">
                   crazyaudios@gmail.com
                 </a>
-              </p>
+              </p> */}
             </div>
 
             <div className="flex justify-center lg:justify-end">
-              <a
+              {/* <a
                 href="mailto:crazyaudios@gmail.com?subject=Seller%20Opportunity%20for%20CrazyAudios"
                 className="inline-flex items-center justify-center rounded-full bg-gradient-to-r from-orange-400 via-orange-500 to-orange-600 px-7 py-3 text-sm font-bold text-white shadow-[0_10px_25px_rgba(249,115,22,0.28)] transition hover:brightness-105 sm:text-base"
               >
                 Become a Seller
-              </a>
+              </a> */}
             </div>
           </div>
         </div>
@@ -598,7 +598,7 @@ export default function Home() {
               Got Questions? Call us between 9:15 AM to 6:15 PM Monday-Saturday
             </p>
 
-            <p className="mt-2 font-semibold text-white">+91-7907570000</p>
+            <p className="mt-2 font-semibold text-white">+91-7907570000(WhatsApp Messages Only)</p>
 
             <div className="mt-6">
               <h3 className="font-semibold mb-3">Policies</h3>
