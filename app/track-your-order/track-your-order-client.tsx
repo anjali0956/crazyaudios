@@ -232,7 +232,7 @@ export default function TrackYourOrderClient({
         <h2 className="text-xl font-semibold text-gray-900">Need Help?</h2>
         <p className="mt-2">
           If a tracking number has not been assigned yet, your order is likely still being
-          packed. For help, contact <strong>craudyaudios@gmail.com</strong> or call
+          packed. For help,  contact us at 
           <strong> +91-7907570000(WhatsApp Messages Only)</strong> during working hours.
         </p>
       </section>
