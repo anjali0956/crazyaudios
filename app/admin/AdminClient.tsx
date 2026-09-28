@@ -547,8 +547,9 @@ export default function AdminClient() {
       }
       .sheet-8 {
         grid-template-columns: 1fr 1fr;
-        grid-template-rows: repeat(4, 1fr);
+        grid-template-rows: repeat(4, minmax(0, 1fr));
         gap: 4mm;
+        height: calc(297mm - 20mm);
       }
       .label {
         width: 100%;
@@ -556,6 +557,8 @@ export default function AdminClient() {
         display: flex;
         flex-direction: column;
         justify-content: flex-start;
+        break-inside: avoid;
+        page-break-inside: avoid;
       }
       .label-1 {
         min-height: 92mm;
@@ -566,8 +569,9 @@ export default function AdminClient() {
         padding: 8mm 7mm;
       }
       .label-8 {
-        min-height: 42mm;
-        padding: 4mm 4.5mm;
+        min-height: 0;
+        height: 100%;
+        padding: 2.5mm 3mm;
       }
       .heading {
         font-size: 13pt;
@@ -576,8 +580,8 @@ export default function AdminClient() {
         margin-bottom: 1.5mm;
       }
       .label-8 .heading {
-        font-size: 10pt;
-        margin-bottom: 1mm;
+        font-size: 8pt;
+        margin-bottom: 0.5mm;
       }
       .content {
         white-space: pre-wrap;
@@ -586,8 +590,8 @@ export default function AdminClient() {
         font-weight: 600;
       }
       .label-8 .content {
-        font-size: 8pt;
-        line-height: 1.15;
+        font-size: 7pt;
+        line-height: 1.1;
       }
       .footer {
         margin-top: 3mm;
@@ -595,8 +599,8 @@ export default function AdminClient() {
         color: #444444;
       }
       .label-8 .footer {
-        margin-top: 1.5mm;
-        font-size: 6.5pt;
+        margin-top: 0.75mm;
+        font-size: 5.5pt;
       }
     </style>
   </head>
@@ -617,6 +621,10 @@ export default function AdminClient() {
 
   const printShippingLabel = (order: Order) => {
     printShippingLabels([order]);
+  };
+
+  const printSelectedOrderLabels = (order: Order, labelsPerPage: 4 | 8) => {
+    printShippingLabels(Array.from({ length: labelsPerPage }, () => order), labelsPerPage);
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -851,18 +859,30 @@ export default function AdminClient() {
               </div>
               <div className="flex flex-wrap gap-2">
                 <button
-                  onClick={() => printShippingLabels(readyToShipOrders, 4)}
-                  disabled={readyToShipOrders.length === 0}
+                  onClick={() =>
+                    selectedOrder
+                      ? printSelectedOrderLabels(selectedOrder, 4)
+                      : printShippingLabels(readyToShipOrders, 4)
+                  }
+                  disabled={selectedOrder ? !formatShippingLabel(selectedOrder) : readyToShipOrders.length === 0}
                   className="self-start rounded-lg bg-blue-700 px-4 py-2 text-white disabled:cursor-not-allowed disabled:opacity-50"
                 >
-                  Print Ready Labels 4/Page ({Math.min(readyToShipOrders.length, 4)})
+                  {selectedOrder
+                    ? "Print Selected Order Labels 4/Page"
+                    : `Print Ready Labels 4/Page (${Math.min(readyToShipOrders.length, 4)})`}
                 </button>
                 <button
-                  onClick={() => printShippingLabels(readyToShipOrders, 8)}
-                  disabled={readyToShipOrders.length <= 1}
+                  onClick={() =>
+                    selectedOrder
+                      ? printSelectedOrderLabels(selectedOrder, 8)
+                      : printShippingLabels(readyToShipOrders, 8)
+                  }
+                  disabled={selectedOrder ? !formatShippingLabel(selectedOrder) : readyToShipOrders.length <= 1}
                   className="self-start rounded-lg bg-indigo-700 px-4 py-2 text-white disabled:cursor-not-allowed disabled:opacity-50"
                 >
-                  Print Ready Labels 8/Page ({Math.min(readyToShipOrders.length, 8)})
+                  {selectedOrder
+                    ? "Print Selected Order Labels 8/Page"
+                    : `Print Ready Labels 8/Page (${Math.min(readyToShipOrders.length, 8)})`}
                 </button>
                 <button
                   onClick={fetchOrders}
