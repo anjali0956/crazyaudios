@@ -129,6 +129,8 @@ export default function AdminClient() {
   const [productSearch, setProductSearch] = useState("");
   const [currentProductPage, setCurrentProductPage] = useState(1);
   const [orderStatusDrafts, setOrderStatusDrafts] = useState<Record<string, OrderDraft>>({});
+  const [labelSheetSize, setLabelSheetSize] = useState<4 | 8>(4);
+  const [labelOrderSlots, setLabelOrderSlots] = useState<Record<number, string>>({});
   const productFormRef = useRef<HTMLFormElement | null>(null);
 
   const formatCurrency = (value: number) => `Rs ${Number(value || 0).toFixed(2)}`;
@@ -463,8 +465,10 @@ export default function AdminClient() {
     }
   };
 
-  const printShippingLabels = (ordersToPrint: Order[], labelsPerPage?: 4 | 8) => {
-    const validOrders = ordersToPrint.filter((order) => formatShippingLabel(order));
+  const printShippingLabels = (ordersToPrint: (Order | null)[], labelsPerPage?: 4 | 8) => {
+    const validOrders = ordersToPrint.filter(
+      (order): order is Order => Boolean(order && formatShippingLabel(order))
+    );
 
     if (validOrders.length === 0) {
       alert("Shipping label is not available for these orders");
@@ -477,17 +481,20 @@ export default function AdminClient() {
       return;
     }
 
-    const resolvedLabelsPerPage: 1 | 4 | 8 =
-      validOrders.length <= 1 ? 1 : labelsPerPage === 8 ? 8 : 4;
+    const resolvedLabelsPerPage: 1 | 4 | 8 = labelsPerPage === 8 ? 8 : labelsPerPage === 4 ? 4 : 1;
 
-    const printableOrders = validOrders.slice(0, resolvedLabelsPerPage);
+    const printableOrders = labelsPerPage
+      ? ordersToPrint.slice(0, resolvedLabelsPerPage)
+      : validOrders.slice(0, 1);
 
-    const escapedLabels = printableOrders.map((order) =>
-      formatShippingLabel(order)
+    const escapedLabels = printableOrders.map((order) => {
+      if (!order) return null;
+
+      return formatShippingLabel(order)
         .replace(/&/g, "&amp;")
         .replace(/</g, "&lt;")
-        .replace(/>/g, "&gt;")
-    );
+        .replace(/>/g, "&gt;");
+    });
 
     const sheetClassName =
       resolvedLabelsPerPage === 8
@@ -504,12 +511,15 @@ export default function AdminClient() {
 
     const labelsMarkup = escapedLabels
       .map(
-        (escapedLabel) => `
+        (escapedLabel) =>
+          escapedLabel
+            ? `
       <div class="${labelClassName}">
         <div class="heading">ELECTROSUPPLY</div>
         <div class="content">${escapedLabel}</div>
         <div class="footer">ElectroSupply - Shipping label</div>
       </div>`
+            : `<div class="${labelClassName} label-empty"></div>`
       )
       .join("");
 
@@ -602,6 +612,9 @@ export default function AdminClient() {
         margin-top: 0.75mm;
         font-size: 5.5pt;
       }
+      .label-empty {
+        border-color: transparent;
+      }
     </style>
   </head>
   <body>
@@ -623,8 +636,13 @@ export default function AdminClient() {
     printShippingLabels([order]);
   };
 
-  const printSelectedOrderLabels = (order: Order, labelsPerPage: 4 | 8) => {
-    printShippingLabels(Array.from({ length: labelsPerPage }, () => order), labelsPerPage);
+  const printSelectedLabelSheet = () => {
+    const ordersForSlots = Array.from({ length: labelSheetSize }, (_, index) => {
+      const orderId = labelOrderSlots[index];
+      return orders.find((order) => order._id === orderId) || null;
+    });
+
+    printShippingLabels(ordersForSlots, labelSheetSize);
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -795,11 +813,19 @@ export default function AdminClient() {
     (safeCurrentProductPage - 1) * PRODUCTS_PER_PAGE,
     safeCurrentProductPage * PRODUCTS_PER_PAGE
   );
-  const readyToShipOrders = orders.filter((order) =>
-    ["packed", "shipped", "out_for_delivery"].includes(
-      String(order.fulfillmentStatus || "").toLowerCase()
-    )
-  );
+  const labelSlotNames =
+    labelSheetSize === 4
+      ? ["Top left", "Top right", "Bottom left", "Bottom right"]
+      : [
+          "Row 1 - left",
+          "Row 1 - right",
+          "Row 2 - left",
+          "Row 2 - right",
+          "Row 3 - left",
+          "Row 3 - right",
+          "Row 4 - left",
+          "Row 4 - right",
+        ];
 
   return (
     <main className="min-h-screen bg-gray-200 p-10 text-black">
@@ -859,38 +885,72 @@ export default function AdminClient() {
               </div>
               <div className="flex flex-wrap gap-2">
                 <button
-                  onClick={() =>
-                    selectedOrder
-                      ? printSelectedOrderLabels(selectedOrder, 4)
-                      : printShippingLabels(readyToShipOrders, 4)
-                  }
-                  disabled={selectedOrder ? !formatShippingLabel(selectedOrder) : readyToShipOrders.length === 0}
-                  className="self-start rounded-lg bg-blue-700 px-4 py-2 text-white disabled:cursor-not-allowed disabled:opacity-50"
-                >
-                  {selectedOrder
-                    ? "Print Selected Order Labels 4/Page"
-                    : `Print Ready Labels 4/Page (${Math.min(readyToShipOrders.length, 4)})`}
-                </button>
-                <button
-                  onClick={() =>
-                    selectedOrder
-                      ? printSelectedOrderLabels(selectedOrder, 8)
-                      : printShippingLabels(readyToShipOrders, 8)
-                  }
-                  disabled={selectedOrder ? !formatShippingLabel(selectedOrder) : readyToShipOrders.length <= 1}
-                  className="self-start rounded-lg bg-indigo-700 px-4 py-2 text-white disabled:cursor-not-allowed disabled:opacity-50"
-                >
-                  {selectedOrder
-                    ? "Print Selected Order Labels 8/Page"
-                    : `Print Ready Labels 8/Page (${Math.min(readyToShipOrders.length, 8)})`}
-                </button>
-                <button
                   onClick={fetchOrders}
                   className="self-start rounded-lg bg-black px-4 py-2 text-white"
                 >
                   Refresh Orders
                 </button>
               </div>
+            </div>
+
+            <div className="mb-5 rounded-xl border border-blue-200 bg-blue-50 p-4">
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                <div>
+                  <h3 className="font-bold text-blue-950">A4 Address Label Sheet</h3>
+                  <p className="text-sm text-blue-900">
+                    Choose a sheet size, then assign an order to each exact position. Leave any position blank if needed.
+                  </p>
+                </div>
+                <div className="flex gap-2">
+                  {[4, 8].map((size) => (
+                    <button
+                      key={size}
+                      type="button"
+                      onClick={() => setLabelSheetSize(size as 4 | 8)}
+                      className={`rounded-lg px-4 py-2 text-sm font-semibold ${
+                        labelSheetSize === size
+                          ? "bg-blue-700 text-white"
+                          : "border border-blue-300 bg-white text-blue-800 hover:bg-blue-100"
+                      }`}
+                    >
+                      {size} labels / A4
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div className="mt-4 grid gap-3 sm:grid-cols-2">
+                {labelSlotNames.map((positionName, index) => (
+                  <label key={positionName} className="rounded-lg border border-blue-200 bg-white p-3">
+                    <span className="mb-1 block text-xs font-bold uppercase tracking-wide text-blue-800">
+                      Position {index + 1}: {positionName}
+                    </span>
+                    <select
+                      value={labelOrderSlots[index] || ""}
+                      onChange={(event) =>
+                        setLabelOrderSlots((current) => ({ ...current, [index]: event.target.value }))
+                      }
+                      className="w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm"
+                    >
+                      <option value="">Leave this position blank</option>
+                      {orders.map((order) => (
+                        <option key={order._id} value={order._id}>
+                          {order.receipt} — {order.customerName}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                ))}
+              </div>
+
+              <button
+                type="button"
+                onClick={printSelectedLabelSheet}
+                disabled={!labelSlotNames.some((_, index) => labelOrderSlots[index])}
+                className="mt-4 rounded-lg bg-blue-700 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-800 disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                Print selected {labelSheetSize}-label A4 sheet
+              </button>
             </div>
 
             {ordersLoading ? (
