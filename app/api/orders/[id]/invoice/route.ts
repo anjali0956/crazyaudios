@@ -6,8 +6,23 @@ import Order from "@/models/Order";
 import { authOptions } from "@/app/api/auth/[...nextauth]/route";
 import { getTaxBreakdown, roundCurrency } from "@/lib/order-utils";
 
+// The built-in PDF fonts use WinAnsi encoding, so normalize text supplied by
+// customers/products before measuring or drawing it. This prevents one smart
+// quote, currency symbol, or other Unicode character from aborting an invoice.
+function toPdfText(value: unknown) {
+  return String(value ?? "")
+    .normalize("NFKD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/\u20b9/g, "Rs ")
+    .replace(/[\u2018\u2019\u2032]/g, "'")
+    .replace(/[\u201c\u201d\u2033]/g, '"')
+    .replace(/[\u2013\u2014]/g, "-")
+    .replace(/\u2026/g, "...")
+    .replace(/[^\x20-\x7e]/g, "?");
+}
+
 function wrapText(text: string, maxWidth: number, font: any, size: number) {
-  const words = String(text || "").split(/\s+/).filter(Boolean);
+  const words = toPdfText(text).split(/\s+/).filter(Boolean);
   const lines: string[] = [];
   let current = "";
 
@@ -83,7 +98,7 @@ export async function GET(
     ) => {
       let currentY = startY;
       for (const line of lines) {
-        page.drawText(line, {
+        page.drawText(toPdfText(line), {
           x,
           y: currentY,
           size,
@@ -102,8 +117,9 @@ export async function GET(
       size = 10,
       textFont = font
     ) => {
-      const textWidth = textFont.widthOfTextAtSize(text, size);
-      page.drawText(text, {
+      const safeText = toPdfText(text);
+      const textWidth = textFont.widthOfTextAtSize(safeText, size);
+      page.drawText(safeText, {
         x: rightEdge - textWidth,
         y: textY,
         size,
