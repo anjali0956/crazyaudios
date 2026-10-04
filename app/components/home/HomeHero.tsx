@@ -49,7 +49,8 @@ function Specimens({ products }: { products: CatalogProduct[] }) {
             className="group flex h-full flex-col rounded-card bg-card p-3 text-ink transition-shadow duration-150 hover:shadow-[0_0_0_2px_var(--color-signal)] xl:p-4"
           >
             <span className="relative block min-h-0 flex-1">
-              <ProductImage src={product.image} alt={product.displayName} fill sizes="200px" className="object-contain" />
+              {/* Above the fold on desktop: eager, preloaded, fetchpriority="high" (ProductImage adds it for priority). */}
+              <ProductImage src={product.image} alt={product.displayName} fill sizes="200px" priority className="object-contain" />
             </span>
             <span className="mt-2 flex items-baseline justify-between gap-2 border-t border-line pt-2">
               <span className="font-mono text-[13px] font-semibold uppercase tracking-[0.02em] text-ink">{product.displayName}</span>

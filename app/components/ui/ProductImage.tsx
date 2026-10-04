@@ -33,7 +33,7 @@ export type ProductImageProps = Omit<ImageProps, "src" | "alt"> & {
  *
  *   <div className="relative aspect-square"><ProductImage src={p.image} alt={p.name} fill sizes="46vw" className="object-contain p-[10%]" /></div>
  */
-export function ProductImage({ src, alt, placeholderClassName, className, ...rest }: ProductImageProps) {
+export function ProductImage({ src, alt, placeholderClassName, className, fetchPriority, ...rest }: ProductImageProps) {
   const clean = normalizeImageSrc(src);
   if (!clean) {
     return (
@@ -50,5 +50,8 @@ export function ProductImage({ src, alt, placeholderClassName, className, ...res
     );
   }
   const remote = /^(https?:)?\/\//i.test(clean);
-  return <Image {...rest} src={clean} alt={alt} className={className} unoptimized={remote || rest.unoptimized} />;
+  // Next 16: `priority`/`preload` only preload and load eagerly; an above-the-fold
+  // photo also needs fetchpriority="high" (on the <img> and its preload link).
+  const priorityHint = fetchPriority ?? (rest.priority || rest.preload ? "high" : undefined);
+  return <Image {...rest} fetchPriority={priorityHint} src={clean} alt={alt} className={className} unoptimized={remote || rest.unoptimized} />;
 }
