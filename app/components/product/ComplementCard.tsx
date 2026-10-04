@@ -46,7 +46,7 @@ export function ComplementCard({ product, className }: { product: CatalogProduct
           </Link>
           <span className="type-price shrink-0 text-[15px] text-ink">{formatINR(product.sellPrice)}</span>
         </p>
-        <p className="truncate text-[13px] leading-[18px] text-ink-2">{product.descriptor ?? product.categoryLabel}</p>
+        <p className="line-clamp-2 text-[13px] leading-[18px] text-ink-2">{product.descriptor ?? product.categoryLabel}</p>
       </div>
       <div className="relative z-[2] shrink-0">
         {inStock ? (
