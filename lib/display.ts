@@ -131,6 +131,22 @@ export function dedupeByDisplayName<T extends Dedupable>(products: T[]): T[] {
 }
 
 /**
+ * Product photos known to show the wrong item (spec §16): /pa11.jpg, used by
+ * "Waveguide WG 148 R", is byte-identical to /s8.jpg (an 18″ subwoofer).
+ * Render a "Photo coming soon" placeholder instead of these. Exported through
+ * lib/catalog as well.
+ */
+export const KNOWN_WRONG_IMAGES: readonly string[] = ["/pa11.jpg"];
+
+/** True when a stored photo path (or our own absolute URL) is in KNOWN_WRONG_IMAGES. */
+export function isKnownWrongImage(src: unknown) {
+  const value = String(src ?? "").trim();
+  if (!value) return false;
+  const path = value.replace(/^https?:\/\/[^/]+/i, "").split(/[?#]/)[0];
+  return KNOWN_WRONG_IMAGES.includes(path.startsWith("/") ? path : `/${path}`);
+}
+
+/**
  * Headline price for a product, pack-aware: "₹950" or "₹12 · pack of 10"
  * (unit price x pack size). Use pricingOf() when you need the numbers.
  */
