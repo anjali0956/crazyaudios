@@ -9,6 +9,8 @@ import ProductImageWithEmblem from "@/app/components/ProductImageWithEmblem";
 import { getDisplayPrice } from "@/lib/order-utils";
 import shouldShowCaEmblem from "@/lib/shouldShowCaEmblem";
 import { trackPixelEvent } from "@/lib/meta-pixel";
+import { absoluteUrl } from "@/lib/site";
+import { WhatsAppProductButton } from "@/app/components/WhatsApp";
 import {
   COD_ENABLED,
   COD_MAX_ORDER_VALUE,
@@ -334,6 +336,10 @@ export default function ProductDetails() {
           >
             Add to Cart
           </button>
+          <WhatsAppProductButton
+            productName={product.name}
+            productUrl={absoluteUrl(`/product/${product._id}`)}
+          />
         </div>
       </div>
 
