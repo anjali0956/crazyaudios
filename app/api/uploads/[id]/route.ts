@@ -65,16 +65,24 @@ export async function GET(
     }
 
     const body = Uint8Array.from(normalizedBuffer);
+    const contentType = asset.contentType || "application/octet-stream";
+    const fileName = String(asset.fileName || "image").replace(/[^\w.\- ]+/g, "_");
+    const headers: Record<string, string> = {
+      "Content-Type": contentType,
+      "Content-Disposition": `inline; filename="${fileName}"`,
+      "Content-Length": String(asset.size || normalizedBuffer.length),
+      "Cache-Control": "public, max-age=31536000, immutable",
+      "X-Content-Type-Options": "nosniff",
+    };
 
-    return new Response(body as unknown as BodyInit, {
-      status: 200,
-      headers: {
-        "Content-Type": asset.contentType || "application/octet-stream",
-        "Content-Disposition": `inline; filename="${asset.fileName}"`,
-        "Content-Length": String(asset.size || normalizedBuffer.length),
-        "Cache-Control": "public, max-age=31536000, immutable",
-      },
-    });
+    // SVGs uploaded before they were blocked: opened directly, an SVG is a
+    // document on our origin and could run script. This CSP stops that while
+    // still letting it render as an image.
+    if (/svg/i.test(contentType) || /\.svgz?$/i.test(String(asset.fileName || ""))) {
+      headers["Content-Security-Policy"] = "default-src 'none'; style-src 'unsafe-inline'";
+    }
+
+    return new Response(body as unknown as BodyInit, { status: 200, headers });
   } catch {
     return new NextResponse("Failed to load image", { status: 500 });
   }
