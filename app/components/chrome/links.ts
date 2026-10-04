@@ -2,7 +2,10 @@
 // system pages. One place to change a link.
 import { COD_ENABLED, COD_MAX_ORDER_VALUE, FREE_SHIPPING_THRESHOLD } from "@/lib/shipping-policy";
 import { WHATSAPP_NUMBER, whatsappLink } from "@/lib/site";
-import { formatINR } from "@/lib/format";
+// formatINRWhole (not formatINR): these strings are built when the module
+// loads, and client code on every page imports this file (error boundary,
+// product page); same output, no ICU number formatter at start-up.
+import { formatINRWhole } from "@/lib/format";
 
 export type NavLink = { label: string; href: string; external?: boolean };
 
@@ -41,15 +44,15 @@ export const LEGAL_LINKS: NavLink[] = [
 /** Core message (spec §11), verbatim. */
 export const CORE_MESSAGE = "Original parts, directly imported";
 
-const freeShipping = FREE_SHIPPING_THRESHOLD > 0 ? `Free shipping over ${formatINR(FREE_SHIPPING_THRESHOLD)}` : "";
+const freeShipping = FREE_SHIPPING_THRESHOLD > 0 ? `Free shipping over ${formatINRWhole(FREE_SHIPPING_THRESHOLD)}` : "";
 
 /** Announcement bar copy (spec §11.2). */
 export const ANNOUNCEMENT = {
   mobile: [CORE_MESSAGE, COD_ENABLED ? "COD available" : freeShipping].filter(Boolean).join(" · "),
-  desktop: [CORE_MESSAGE, freeShipping, COD_ENABLED ? `COD up to ${formatINR(COD_MAX_ORDER_VALUE)}` : ""].filter(Boolean).join(" · "),
+  desktop: [CORE_MESSAGE, freeShipping, COD_ENABLED ? `COD up to ${formatINRWhole(COD_MAX_ORDER_VALUE)}` : ""].filter(Boolean).join(" · "),
 };
 
 /** "UPI · Cards · Netbanking · Cash on Delivery (up to ₹5,000)" */
-export const PAYMENT_METHODS = ["UPI", "Cards", "Netbanking", COD_ENABLED ? `Cash on Delivery (up to ${formatINR(COD_MAX_ORDER_VALUE)})` : ""]
+export const PAYMENT_METHODS = ["UPI", "Cards", "Netbanking", COD_ENABLED ? `Cash on Delivery (up to ${formatINRWhole(COD_MAX_ORDER_VALUE)})` : ""]
   .filter(Boolean)
   .join(" · ");

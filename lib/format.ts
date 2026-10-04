@@ -50,6 +50,18 @@ export function formatINR(value: number) {
   return inrFormatter(false).format(roundHalfUp(n, 0));
 }
 
+/**
+ * Whole rupees with Indian grouping, without Intl: 150000 -> "₹1,50,000".
+ * Same output as formatINR for whole, non-negative amounts (checked for every
+ * value up to 2 lakh). For constants built when a module loads (announcement
+ * and payment lines), so loading them never sets up an ICU formatter.
+ */
+export function formatINRWhole(value: number) {
+  const digits = String(Math.max(0, Math.round(Number(value) || 0)));
+  if (digits.length <= 3) return `₹${digits}`;
+  return `₹${digits.slice(0, -3).replace(/\B(?=(\d{2})+(?!\d))/g, ",")},${digits.slice(-3)}`;
+}
+
 /** Plain number with Indian grouping: 125000 -> "1,25,000". */
 export function formatNumber(value: number) {
   return (indianNumber ??= new Intl.NumberFormat("en-IN")).format(Number(value) || 0);
