@@ -9,7 +9,7 @@ import ProductImageWithEmblem from "./components/ProductImageWithEmblem";
 import formatCategoryName from "@/lib/formatCategoryName";
 import { getDisplayPrice } from "@/lib/order-utils";
 import shouldShowCaEmblem from "@/lib/shouldShowCaEmblem";
-import { trackPixelEvent } from "@/lib/meta-pixel";
+import { useCart } from "./components/cart/CartProvider";
 
 const CATEGORY_IMAGE_OVERRIDES: Record<string, string> = {
   brainsaudios: "/brains-logo.jpg",
@@ -61,6 +61,7 @@ type Product = {
 export default function Home() {
   const [products, setProducts] = useState<Product[]>([]);
   const { setSelectedCategory } = useCategory();
+  const { addItem } = useCart();
 
   const [heroSlide, setHeroSlide] = useState(0);
   const [search, setSearch] = useState("");
@@ -196,45 +197,8 @@ export default function Home() {
   const addToCartFromHomepage = (product: Product, event: MouseEvent<HTMLButtonElement>) => {
     event.preventDefault();
     event.stopPropagation();
-
-    const storedCart = JSON.parse(browserStorage.get("cart") || "[]");
-    const { inclusiveFinalPrice, inclusiveBasePrice } = getDisplayPrice(
-      product.price,
-      product.discountPercentage || 0,
-      Boolean(product.flashSale)
-    );
-
-    const existingItem = storedCart.find((item: any) => item._id === product._id);
-    const packQuantity = Math.max(1, Number(product.packSize) || 1);
-
-    if (existingItem) {
-      existingItem.quantity = Math.max(packQuantity, Number(existingItem.quantity || packQuantity)) + packQuantity;
-      existingItem.price = inclusiveFinalPrice;
-      existingItem.originalPrice = inclusiveBasePrice;
-      existingItem.flashSale = Boolean(product.flashSale);
-      existingItem.discountPercentage = product.discountPercentage || 0;
-      existingItem.packSize = product.packSize || null;
-    } else {
-      storedCart.push({
-        ...product,
-        price: inclusiveFinalPrice,
-        originalPrice: inclusiveBasePrice,
-        flashSale: Boolean(product.flashSale),
-        discountPercentage: product.discountPercentage || 0,
-        quantity: packQuantity,
-      });
-    }
-
-    browserStorage.set("cart", JSON.stringify(storedCart));
-    trackPixelEvent("AddToCart", {
-      content_ids: [product._id],
-      content_type: "product",
-      content_name: product.name,
-      contents: [{ id: product._id, quantity: packQuantity, item_price: inclusiveFinalPrice }],
-      value: Number((inclusiveFinalPrice * packQuantity).toFixed(2)),
-      currency: "INR",
-    });
-    alert("Added to cart!");
+    // Cart store: one pack per tap, capped at stock, toast + Meta AddToCart.
+    addItem(product);
   };
 
   return (
@@ -597,70 +561,6 @@ export default function Home() {
         </div>
       </section>
 
-      <footer className="bg-black text-white pt-10 mt-10 border-t border-gray-800">
-        <div className="max-w-7xl mx-auto px-6 grid grid-cols-1 md:grid-cols-5 gap-8">
-          <div className="md:col-span-2">
-            <h2 className="text-2xl font-bold text-orange-400">CRAZY AUDIOS</h2>
-            <p className="text-sm text-gray-400 mt-2">Your Ideas, Our Parts</p>
-
-            <p className="text-sm mt-4 text-gray-400">
-              Got Questions? Contact us between 9:15 AM to 6:15 PM Monday-Saturday
-            </p>
-
-            <p className="mt-2 font-semibold text-white">+91-7907570000(WhatsApp Messages Only)</p>
-
-            <div className="mt-6">
-              <h3 className="font-semibold mb-3">Policies</h3>
-              <ul className="space-y-2 text-sm text-gray-400">
-                <li><Link href="/privacy-policy" className="hover:text-white">Privacy Policy</Link></li>
-                <li><Link href="/terms-of-service" className="hover:text-white">Terms of Service</Link></li>
-                <li><Link href="/shipping-refund" className="hover:text-white">Shipping & Refund</Link></li>
-              </ul>
-            </div>
-          </div>
-
-          <div>
-            <h3 className="font-semibold mb-3">Information</h3>
-            <ul className="space-y-2 text-sm text-gray-400">
-              <li><Link href="/track-your-order" className="hover:text-white">Track Your Order</Link></li>
-              <li><Link href="/faq" className="hover:text-white">FAQ</Link></li>
-            </ul>
-          </div>
-
-          <div>
-            <h3 className="font-semibold mb-3">My Account</h3>
-            <ul className="space-y-2 text-sm text-gray-400">
-              <li><Link href="/cart" className="hover:text-white">Cart</Link></li>
-              <li><Link href="/checkout" className="hover:text-white">Checkout</Link></li>
-              <li><Link href="/my-account" className="hover:text-white">My Account</Link></li>
-              <li>Payment Options</li>
-            </ul>
-          </div>
-
-          <div>
-            <h3 className="font-semibold mb-3">Services</h3>
-            <ul className="space-y-2 text-sm text-gray-400 mb-4">
-              <li><Link href="/about-us" className="hover:text-white">About Us</Link></li>
-              <li><Link href="/contact-us" className="hover:text-white">Contact Us</Link></li>
-            </ul>
-
-            <div className="mt-4">
-              <Image
-                src="/logo-new.jpg"
-                alt="Crazy Audios Logo"
-                width={500}
-                height={160}
-                className="object-contain"
-              />
-            </div>
-          </div>
-        </div>
-
-        <div className="text-center text-sm text-gray-400 mt-10 pb-6">
-          {/* <p>Contact: craudyaudios@gmail.com</p> */}
-          <p className="mt-1">Made with love by rat</p>
-        </div>
-      </footer>
     </main>
   );
 }

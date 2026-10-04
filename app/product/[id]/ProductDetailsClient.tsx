@@ -11,6 +11,7 @@ import shouldShowCaEmblem from "@/lib/shouldShowCaEmblem";
 import { trackPixelEvent } from "@/lib/meta-pixel";
 import { absoluteUrl } from "@/lib/site";
 import { WhatsAppProductButton } from "@/app/components/WhatsApp";
+import { useCart } from "@/app/components/cart/CartProvider";
 import {
   COD_ENABLED,
   COD_MAX_ORDER_VALUE,
@@ -39,6 +40,7 @@ export default function ProductDetails() {
   const [allProducts, setAllProducts] = useState<Product[]>([]);
   const [quantity, setQuantity] = useState(1);
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
+  const { addItem } = useCart();
 
   useEffect(() => {
     if (!id) return;
@@ -48,16 +50,13 @@ export default function ProductDetails() {
         setProduct(productRes.data);
         setAllProducts(productsRes.data || []);
         setCurrentImageIndex(0);
+        // Start at one pack (set with the product instead of in a follow-up effect).
+        setQuantity(Math.max(1, Number(productRes.data?.packSize) || 1));
       })
       .catch((err) => {
         console.error("Error fetching product:", err);
       });
   }, [id]);
-
-  useEffect(() => {
-    if (!product) return;
-    setQuantity(Math.max(1, Number(product.packSize) || 1));
-  }, [product]);
 
   useEffect(() => {
     if (!product) return;
@@ -127,38 +126,8 @@ export default function ProductDetails() {
 
   const addToCart = () => {
     if (!product) return;
-    const existingCart = JSON.parse(localStorage.getItem("cart") || "[]");
-
-    const existingItem = existingCart.find((item: any) => item._id === product._id);
-
-    if (existingItem) {
-      existingItem.quantity += quantity;
-      existingItem.price = finalPrice;
-      existingItem.originalPrice = originalDisplayPrice;
-      existingItem.flashSale = Boolean(product.flashSale);
-      existingItem.discountPercentage = product.discountPercentage || 0;
-      existingItem.packSize = product.packSize || null;
-    } else {
-      existingCart.push({
-        ...product,
-        price: finalPrice,
-        originalPrice: originalDisplayPrice,
-        flashSale: Boolean(product.flashSale),
-        discountPercentage: product.discountPercentage || 0,
-        quantity,
-      });
-    }
-
-    localStorage.setItem("cart", JSON.stringify(existingCart));
-    trackPixelEvent("AddToCart", {
-      content_ids: [product._id],
-      content_type: "product",
-      content_name: product.name,
-      contents: [{ id: product._id, quantity, item_price: finalPrice }],
-      value: Number((finalPrice * quantity).toFixed(2)),
-      currency: "INR",
-    });
-    alert("Added to cart!");
+    // Cart store: caps at stock, toast instead of alert, same Meta AddToCart payload.
+    addItem(product, quantity);
   };
 
   if (!product) return <p className="p-4 sm:p-6 lg:p-10">Loading...</p>;

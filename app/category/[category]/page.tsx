@@ -7,6 +7,7 @@ import { useParams } from "next/navigation";
 import { useCategory } from "@/app/components/CategoryContext";
 import ProductImageWithEmblem from "@/app/components/ProductImageWithEmblem";
 import formatCategoryName from "@/lib/formatCategoryName";
+import { resolveCategory, resolveGroup } from "@/lib/categories";
 import { getDisplayPrice } from "@/lib/order-utils";
 import shouldShowCaEmblem from "@/lib/shouldShowCaEmblem";
 
@@ -26,6 +27,17 @@ export default function CategoryProductsPage() {
   const params = useParams<{ category: string }>();
   const rawCategory = Array.isArray(params.category) ? params.category[0] : params.category;
   const category = decodeURIComponent(rawCategory || "");
+  // Foundation compat: the new chrome links use slugs (/category/amplifier-ics)
+  // and department groups (/category/speaker-drivers); old raw URLs still work.
+  const resolvedCategory = resolveCategory(rawCategory || "");
+  const resolvedGroup = resolvedCategory ? null : resolveGroup(rawCategory || "");
+  const rawNames = resolvedCategory
+    ? [resolvedCategory.raw]
+    : resolvedGroup
+      ? resolvedGroup.categories
+      : [category.toLowerCase().trim()];
+  const rawKey = rawNames.join("|");
+  const title = resolvedCategory?.label ?? resolvedGroup?.label ?? formatCategoryName(category);
 
   const [products, setProducts] = useState<Product[]>([]);
   const { setSelectedCategory } = useCategory();
@@ -40,18 +52,18 @@ export default function CategoryProductsPage() {
   }, [category, setSelectedCategory]);
 
   const categoryProducts = useMemo(
-    () =>
-      products.filter(
-        (product) => product.category?.toLowerCase().trim() === category.toLowerCase().trim()
-      ),
-    [category, products]
+    () => {
+      const wanted = rawKey.split("|");
+      return products.filter((product) => wanted.includes(product.category?.toLowerCase().trim() || ""));
+    },
+    [rawKey, products]
   );
 
   return (
     <main className="min-h-screen bg-gray-100 text-black p-4 sm:p-6 lg:p-10">
       <div className="max-w-7xl mx-auto">
         <div className="flex flex-col gap-3 mb-6 sm:flex-row sm:items-center sm:justify-between">
-          <h1 className="text-2xl font-bold sm:text-3xl">{formatCategoryName(category)}</h1>
+          <h1 className="text-2xl font-bold sm:text-3xl">{title}</h1>
           <Link href="/" className="w-fit px-4 py-2 rounded bg-black text-white text-sm">
             Back to Home
           </Link>
