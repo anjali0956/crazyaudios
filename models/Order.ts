@@ -36,6 +36,22 @@ const TrackingEventSchema = new mongoose.Schema(
   { _id: false }
 );
 
+// Where the customer came from (UTM tags / Meta click id), captured on landing.
+const AttributionSchema = new mongoose.Schema(
+  {
+    utmSource: { type: String, default: "" },
+    utmMedium: { type: String, default: "" },
+    utmCampaign: { type: String, default: "" },
+    utmContent: { type: String, default: "" },
+    utmTerm: { type: String, default: "" },
+    fbclid: { type: String, default: "" },
+    landingPage: { type: String, default: "" },
+    referrer: { type: String, default: "" },
+    capturedAt: { type: Date, default: null },
+  },
+  { _id: false }
+);
+
 const OrderSchema = new mongoose.Schema(
   {
     receipt: { type: String, required: true, unique: true },
@@ -58,9 +74,15 @@ const OrderSchema = new mongoose.Schema(
     shippingTaxAmount: { type: Number, default: 0 },
     totalAmount: { type: Number, required: true },
     currency: { type: String, default: "INR" },
+    paymentMethod: {
+      type: String,
+      enum: ["prepaid", "cod"],
+      default: "prepaid",
+    },
+    // "cod" = confirmed Cash on Delivery order, amount to be collected on delivery.
     status: {
       type: String,
-      enum: ["created", "paid", "failed"],
+      enum: ["created", "paid", "failed", "cod"],
       default: "created",
     },
     fulfillmentStatus: {
@@ -72,9 +94,13 @@ const OrderSchema = new mongoose.Schema(
     trackingNumber: { type: String, default: "" },
     estimatedDelivery: { type: Date, default: null },
     trackingTimeline: { type: [TrackingEventSchema], default: [] },
+    // COD orders store "cod_<receipt>" here: the existing unique index treats
+    // a missing value as a duplicate, so every order needs a distinct value.
     razorpayOrderId: { type: String, required: true, unique: true, index: true },
     razorpayPaymentId: { type: String, default: "" },
     razorpaySignature: { type: String, default: "" },
+    attribution: { type: AttributionSchema, default: null },
+    metaPurchaseSentAt: { type: Date, default: null },
   },
   { timestamps: true }
 );

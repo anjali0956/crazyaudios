@@ -3,6 +3,7 @@ import { getServerSession } from "next-auth";
 import dbConnect from "@/lib/mongodb";
 import Order from "@/models/Order";
 import { authOptions } from "@/app/api/auth/[...nextauth]/route";
+import { CONFIRMED_ORDER_STATUSES } from "@/lib/order-utils";
 
 export async function GET() {
   try {
@@ -16,7 +17,7 @@ export async function GET() {
 
     const orders = await Order.find({
       $or: [{ userEmail: session.user.email }, { customerEmail: session.user.email }],
-      status: "paid",
+      status: { $in: CONFIRMED_ORDER_STATUSES },
     })
       .sort({ createdAt: -1 })
       .lean();

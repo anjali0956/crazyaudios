@@ -1,4 +1,7 @@
 export const TAX_RATE = 18;
+
+// Orders that are real and must be fulfilled: paid online, or confirmed Cash on Delivery.
+export const CONFIRMED_ORDER_STATUSES = ["paid", "cod"];
 export const SHIPPING_ORIGIN_CITY = "Irinjalakuda";
 export const SHIPPING_ORIGIN_STATE = "Kerala";
 

@@ -4,6 +4,7 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/app/api/auth/[...nextauth]/route";
 import dbConnect from "@/lib/mongodb";
 import Order from "@/models/Order";
+import { CONFIRMED_ORDER_STATUSES } from "@/lib/order-utils";
 
 function formatStatus(status: string) {
   return status
@@ -22,7 +23,7 @@ export default async function OrdersPage() {
 
   const orders = await Order.find({
     $or: [{ userEmail: session.user.email }, { customerEmail: session.user.email }],
-    status: "paid",
+    status: { $in: CONFIRMED_ORDER_STATUSES },
   })
     .sort({ createdAt: -1 })
     .lean();
@@ -34,7 +35,7 @@ export default async function OrdersPage() {
 
         {orders.length === 0 ? (
           <div className="rounded-xl bg-white p-6 shadow">
-            <p className="text-gray-600">No paid orders found for this account yet.</p>
+            <p className="text-gray-600">No orders found for this account yet.</p>
           </div>
         ) : (
           <div className="space-y-5">
@@ -45,7 +46,8 @@ export default async function OrdersPage() {
                     <p className="text-sm text-gray-500">Invoice: {order.invoiceNumber}</p>
                     <h2 className="text-xl font-semibold">{order.receipt}</h2>
                     <p className="mt-1 text-sm text-gray-600">
-                      Paid on {new Date(order.createdAt).toLocaleString("en-IN")}
+                      {order.paymentMethod === "cod" ? "Ordered on" : "Paid on"}{" "}
+                      {new Date(order.createdAt).toLocaleString("en-IN")}
                     </p>
                     <p className="mt-2 text-sm font-medium text-blue-700">
                       Status: {formatStatus(order.fulfillmentStatus || "processing")}
@@ -62,7 +64,9 @@ export default async function OrdersPage() {
                     ) : null}
                   </div>
                   <div className="text-left sm:text-right">
-                    <p className="text-sm text-gray-500">Total Paid</p>
+                    <p className="text-sm text-gray-500">
+                      {order.paymentMethod === "cod" ? "Pay on Delivery (Cash)" : "Total Paid"}
+                    </p>
                     <p className="text-2xl font-bold">₹{order.totalAmount}</p>
                   </div>
                 </div>

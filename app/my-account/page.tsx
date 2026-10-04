@@ -5,6 +5,7 @@ import InfoPageShell from "@/app/components/InfoPageShell";
 import { authOptions } from "@/app/api/auth/[...nextauth]/route";
 import dbConnect from "@/lib/mongodb";
 import Order from "@/models/Order";
+import { CONFIRMED_ORDER_STATUSES } from "@/lib/order-utils";
 
 function formatStatus(status: string) {
   return status
@@ -27,7 +28,7 @@ export default async function MyAccountPage() {
 
   const orders = await Order.find({
     $or: [{ userEmail: session.user.email }, { customerEmail: session.user.email }],
-    status: "paid",
+    status: { $in: CONFIRMED_ORDER_STATUSES },
   })
     .sort({ createdAt: -1 })
     .lean();
@@ -67,7 +68,7 @@ export default async function MyAccountPage() {
 
         {orders.length === 0 ? (
           <div className="mt-4 rounded-lg border border-gray-200 bg-gray-50 p-4 text-sm text-gray-600">
-            No paid orders found for this account yet.
+            No orders found for this account yet.
           </div>
         ) : (
           <div className="mt-4 overflow-x-auto rounded-lg border border-gray-200">

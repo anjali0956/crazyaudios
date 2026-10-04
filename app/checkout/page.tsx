@@ -1,6 +1,6 @@
 ﻿"use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import axios from "axios";
 import {
@@ -10,6 +10,22 @@ import {
   getTaxLabel,
   roundCurrency,
 } from "@/lib/order-utils";
+import {
+  COD_ENABLED,
+  COD_MAX_ORDER_VALUE,
+  FREE_SHIPPING_THRESHOLD,
+  type PaymentMethod,
+  amountLeftForFreeShipping,
+  formatRupees,
+  isCodAllowed,
+} from "@/lib/shipping-policy";
+import {
+  LAST_PURCHASE_STORAGE_KEY,
+  type StoredPurchase,
+  getPurchaseEventId,
+  trackPixelEvent,
+} from "@/lib/meta-pixel";
+import { getStoredAttribution } from "@/lib/attribution";
 
 type CartItem = {
   _id: string;
@@ -32,6 +48,10 @@ type ShippingQuote = {
   courierCompanyId: number;
   shippingFee: number;
   baseShippingFee: number;
+  fullShippingFee?: number;
+  freeShippingApplied?: boolean;
+  cod?: boolean;
+  codCharges?: number;
   shippingLabel: string;
   courierName: string;
   estimatedDeliveryText: string;
@@ -42,6 +62,7 @@ type ShippingQuote = {
     name: string;
     rate: number;
     base_rate?: number;
+    full_rate?: number;
     estimated_delivery_days?: string;
     etd?: string;
     rating?: number;
@@ -96,11 +117,26 @@ export default function CheckoutPage() {
   const [shippingLoading, setShippingLoading] = useState(false);
   const [shippingError, setShippingError] = useState("");
   const [selectedCourierCompanyId, setSelectedCourierCompanyId] = useState<number | null>(null);
+  const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>("prepaid");
+  const checkoutTracked = useRef(false);
 
   useEffect(() => {
     const storedCart = JSON.parse(localStorage.getItem("cart") || "[]") as CartItem[];
     setCart(storedCart);
   }, []);
+
+  useEffect(() => {
+    if (checkoutTracked.current || !cart.length) return;
+    checkoutTracked.current = true;
+    trackPixelEvent("InitiateCheckout", {
+      content_ids: cart.map((item) => item._id),
+      content_type: "product",
+      contents: cart.map((item) => ({ id: item._id, quantity: item.quantity, item_price: item.price })),
+      num_items: cart.reduce((sum, item) => sum + item.quantity, 0),
+      value: roundCurrency(cart.reduce((sum, item) => sum + item.price * item.quantity, 0)),
+      currency: "INR",
+    });
+  }, [cart]);
 
   useEffect(() => {
     if (sameAsShipping) {
@@ -135,6 +171,41 @@ export default function CheckoutPage() {
     productTaxBreakdown.igstAmount + shippingTaxBreakdown.igstAmount
   );
   const grandTotal = roundCurrency(subtotal + shippingFee);
+  const codAllowed = isCodAllowed(subtotal);
+  const amountForFreeShipping = amountLeftForFreeShipping(subtotal);
+  const freeShippingApplied = Boolean(shippingQuote?.freeShippingApplied);
+
+  useEffect(() => {
+    if (paymentMethod === "cod" && !codAllowed) {
+      setPaymentMethod("prepaid");
+      setSelectedCourierCompanyId(null);
+    }
+  }, [codAllowed, paymentMethod]);
+
+  const choosePaymentMethod = (method: PaymentMethod) => {
+    if (method === paymentMethod) return;
+    setPaymentMethod(method);
+    // Not every courier accepts COD; let the server pick again.
+    setSelectedCourierCompanyId(null);
+    setErrorMessage("");
+  };
+
+  const rememberPurchase = (orderId: string, value: number, method: PaymentMethod) => {
+    const purchase: StoredPurchase = {
+      orderId,
+      eventId: getPurchaseEventId(orderId),
+      value,
+      currency: "INR",
+      contents: cart.map((item) => ({ id: item._id, quantity: item.quantity, item_price: item.price })),
+      numItems: cart.reduce((sum, item) => sum + item.quantity, 0),
+      paymentMethod: method,
+    };
+    try {
+      sessionStorage.setItem(LAST_PURCHASE_STORAGE_KEY, JSON.stringify(purchase));
+    } catch {
+      // Tracking only; the order itself is already saved.
+    }
+  };
 
   useEffect(() => {
     const cleanPincode = String(shipping.pincode || "").replace(/\D/g, "");
@@ -161,7 +232,7 @@ export default function CheckoutPage() {
               productId: item._id,
               quantity: item.quantity,
             })),
-            cod: false,
+            cod: paymentMethod === "cod",
             selectedCourierCompanyId,
           },
           { signal: controller.signal }
@@ -184,7 +255,7 @@ export default function CheckoutPage() {
       controller.abort();
       window.clearTimeout(timer);
     };
-  }, [cart, selectedCourierCompanyId, shipping.pincode, subtotal]);
+  }, [cart, paymentMethod, selectedCourierCompanyId, shipping.pincode, subtotal]);
 
   const handleSameAddress = (checked: boolean) => {
     setSameAsShipping(checked);
@@ -212,6 +283,49 @@ export default function CheckoutPage() {
     setErrorMessage("");
     setIsPaying(true);
 
+    const orderPayload = {
+      cartItems: cart.map((item) => ({
+        productId: item._id,
+        quantity: item.quantity,
+      })),
+      shippingAddress: shipping,
+      billingAddress: sameAsShipping ? shipping : billing,
+      selectedCourierCompanyId,
+      paymentMethod,
+      attribution: getStoredAttribution(),
+    };
+
+    if (paymentMethod === "cod") {
+      try {
+        const codRes = await axios.post("/api/create-order", orderPayload);
+
+        if (!codRes.data?.success) {
+          throw new Error("Failed to place order");
+        }
+
+        rememberPurchase(
+          codRes.data.orderId,
+          Number(codRes.data.totals?.totalAmount) || grandTotal,
+          "cod"
+        );
+        localStorage.removeItem("cart");
+        setCart([]);
+        router.push(
+          `/checkout/success?order=${encodeURIComponent(
+            codRes.data.orderId
+          )}&receipt=${encodeURIComponent(codRes.data.receipt)}&method=cod`
+        );
+      } catch (error) {
+        setIsPaying(false);
+        setErrorMessage(
+          (axios.isAxiosError(error) && error.response?.data?.error) ||
+            (error instanceof Error && error.message) ||
+            "Failed to place order"
+        );
+      }
+      return;
+    }
+
     try {
       const scriptLoaded = await loadRazorpayScript();
 
@@ -219,15 +333,7 @@ export default function CheckoutPage() {
         throw new Error("Failed to load Razorpay checkout");
       }
 
-      const orderRes = await axios.post("/api/create-order", {
-        cartItems: cart.map((item) => ({
-          productId: item._id,
-          quantity: item.quantity,
-        })),
-        shippingAddress: shipping,
-        billingAddress: sameAsShipping ? shipping : billing,
-        selectedCourierCompanyId,
-      });
+      const orderRes = await axios.post("/api/create-order", orderPayload);
 
       const order = orderRes.data;
 
@@ -246,6 +352,11 @@ export default function CheckoutPage() {
             });
 
             if (verifyRes.data?.success) {
+              rememberPurchase(
+                verifyRes.data.orderId,
+                Number(order.totals?.totalAmount) || grandTotal,
+                "prepaid"
+              );
               localStorage.removeItem("cart");
               setCart([]);
               router.push(
@@ -383,16 +494,39 @@ export default function CheckoutPage() {
 
             <div className="rounded-lg border border-blue-100 bg-blue-50 px-4 py-3 text-sm text-blue-900">
               Courier charge to {shipping.city || "your city"}, {shipping.state || "your state"}:{" "}
-              <strong>{shippingLoading ? "Calculating..." : `Rs ${shippingFee}`}</strong>
+              <strong>
+                {shippingLoading
+                  ? "Calculating..."
+                  : freeShippingApplied && shippingFee === 0
+                    ? "FREE"
+                    : `Rs ${shippingFee}`}
+              </strong>
+              {!shippingLoading &&
+              freeShippingApplied &&
+              (shippingQuote?.fullShippingFee || 0) > shippingFee ? (
+                <span className="ml-2 text-xs text-blue-700 line-through">
+                  Rs {shippingQuote?.fullShippingFee}
+                </span>
+              ) : null}
               <div className="mt-1 text-xs text-blue-700">
                 {shippingError
                   ? shippingError
                   : shippingQuote?.shippingLabel || "Enter a valid 6-digit pincode to fetch live courier rates"}
               </div>
-              {shippingQuote && !shippingError ? (
+              {shippingQuote && !shippingError && !freeShippingApplied ? (
                 <div className="mt-1 text-xs text-blue-700">
                   Base courier {`Rs ${shippingQuote.baseShippingFee}`} + handling uplift ={" "}
                   <strong>{`Rs ${shippingQuote.shippingFee}`}</strong>
+                </div>
+              ) : null}
+              {shippingQuote && !shippingError && freeShippingApplied ? (
+                <div className="mt-1 text-xs font-semibold text-green-700">
+                  Free shipping applied on orders over {formatRupees(FREE_SHIPPING_THRESHOLD)}
+                </div>
+              ) : null}
+              {shippingQuote?.cod && (shippingQuote.codCharges || 0) > 0 && !shippingError ? (
+                <div className="mt-1 text-xs text-blue-700">
+                  Includes the courier&apos;s Cash on Delivery charge of Rs {shippingQuote.codCharges}
                 </div>
               ) : null}
               {shippingQuote?.courierName ? (
@@ -404,6 +538,13 @@ export default function CheckoutPage() {
                 </div>
               ) : null}
             </div>
+
+            {FREE_SHIPPING_THRESHOLD > 0 && amountForFreeShipping > 0 && cart.length ? (
+              <div className="rounded-lg border border-green-100 bg-green-50 px-4 py-3 text-sm text-green-900">
+                Add <strong>{formatRupees(amountForFreeShipping)}</strong> more to your order to get
+                free shipping (orders over {formatRupees(FREE_SHIPPING_THRESHOLD)}).
+              </div>
+            ) : null}
 
             {shippingQuote?.availableCouriers?.length ? (
               <div className="rounded-lg border border-gray-200 bg-white p-4">
@@ -440,8 +581,10 @@ export default function CheckoutPage() {
                             </p>
                           </div>
                           <div className="text-right">
-                            <p className="font-semibold text-gray-900">Rs {courier.rate}</p>
-                            {courier.base_rate ? (
+                            <p className="font-semibold text-gray-900">
+                              {courier.rate === 0 ? "Free" : `Rs ${courier.rate}`}
+                            </p>
+                            {courier.base_rate && !freeShippingApplied ? (
                               <p className="text-xs text-gray-500">Base Rs {courier.base_rate}</p>
                             ) : null}
                             <p className="text-xs text-gray-500">
@@ -541,12 +684,56 @@ export default function CheckoutPage() {
               </div>
             </div>
 
+            <div className="mt-6">
+              <h2 className="mb-3 text-xl font-semibold">Payment Method</h2>
+              <div className="space-y-3">
+                <button
+                  type="button"
+                  onClick={() => choosePaymentMethod("prepaid")}
+                  className={`w-full rounded-lg border px-4 py-3 text-left transition ${
+                    paymentMethod === "prepaid"
+                      ? "border-blue-700 bg-blue-50 ring-2 ring-blue-100"
+                      : "border-gray-200 bg-gray-50 hover:border-gray-300"
+                  }`}
+                >
+                  <p className="font-semibold text-gray-900">Pay online</p>
+                  <p className="text-sm text-gray-600">UPI, cards, net banking and wallets via Razorpay</p>
+                </button>
+
+                {COD_ENABLED ? (
+                  <button
+                    type="button"
+                    onClick={() => codAllowed && choosePaymentMethod("cod")}
+                    disabled={!codAllowed}
+                    className={`w-full rounded-lg border px-4 py-3 text-left transition disabled:cursor-not-allowed disabled:opacity-60 ${
+                      paymentMethod === "cod"
+                        ? "border-blue-700 bg-blue-50 ring-2 ring-blue-100"
+                        : "border-gray-200 bg-gray-50 hover:border-gray-300"
+                    }`}
+                  >
+                    <p className="font-semibold text-gray-900">Cash on Delivery</p>
+                    <p className="text-sm text-gray-600">
+                      {codAllowed
+                        ? "Pay in cash when your parcel arrives. The courier's COD charge is added to shipping."
+                        : `Available on orders up to ${formatRupees(COD_MAX_ORDER_VALUE)}`}
+                    </p>
+                  </button>
+                ) : null}
+              </div>
+            </div>
+
             <button
               type="submit"
               disabled={isPaying || shippingLoading || !shippingQuote || !selectedCourierCompanyId}
               className="mt-6 w-full rounded-lg bg-black py-3 text-white disabled:cursor-not-allowed disabled:opacity-70"
             >
-              {isPaying ? "Opening Razorpay..." : "Continue to Payment"}
+              {paymentMethod === "cod"
+                ? isPaying
+                  ? "Placing order..."
+                  : `Place Order (Cash on Delivery${grandTotal ? ` – Rs ${grandTotal}` : ""})`
+                : isPaying
+                  ? "Opening Razorpay..."
+                  : "Continue to Payment"}
             </button>
           </form>
         </div>
@@ -580,7 +767,13 @@ export default function CheckoutPage() {
                     : shippingQuote?.shippingLabel || "Live courier rate pending"}
                 </p>
               </div>
-              <span>{shippingLoading ? "..." : `Rs ${shippingFee}`}</span>
+              <span>
+                {shippingLoading
+                  ? "..."
+                  : freeShippingApplied && shippingFee === 0
+                    ? "Free"
+                    : `Rs ${shippingFee}`}
+              </span>
             </div>
             <div className="flex justify-between">
               <div>
@@ -601,7 +794,7 @@ export default function CheckoutPage() {
           </div>
 
           <div className="mt-4 flex justify-between border-t pt-4 text-lg font-semibold">
-            <span>Total</span>
+            <span>{paymentMethod === "cod" ? "Total (pay on delivery)" : "Total"}</span>
             <span>Rs {grandTotal}</span>
           </div>
         </div>

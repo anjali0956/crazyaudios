@@ -9,6 +9,7 @@ import ProductImageWithEmblem from "./components/ProductImageWithEmblem";
 import formatCategoryName from "@/lib/formatCategoryName";
 import { getDisplayPrice } from "@/lib/order-utils";
 import shouldShowCaEmblem from "@/lib/shouldShowCaEmblem";
+import { trackPixelEvent } from "@/lib/meta-pixel";
 
 const CATEGORY_IMAGE_OVERRIDES: Record<string, string> = {
   brainsaudios: "/brains-logo.jpg",
@@ -225,6 +226,14 @@ export default function Home() {
     }
 
     browserStorage.set("cart", JSON.stringify(storedCart));
+    trackPixelEvent("AddToCart", {
+      content_ids: [product._id],
+      content_type: "product",
+      content_name: product.name,
+      contents: [{ id: product._id, quantity: packQuantity, item_price: inclusiveFinalPrice }],
+      value: Number((inclusiveFinalPrice * packQuantity).toFixed(2)),
+      currency: "INR",
+    });
     alert("Added to cart!");
   };
 
