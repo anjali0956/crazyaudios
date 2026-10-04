@@ -52,8 +52,10 @@ function logTraffic(path: string, visitorId: string) {
 
 // The storefront header lives in app/components/chrome (rendered by the root
 // layout); this file keeps the app-wide providers and traffic logging. There is
-// no next-auth SessionProvider: pages read the session on the server, the menu
-// fetches it when opened, and signIn/signOut work without a provider.
+// no app-wide next-auth SessionProvider: pages read the session on the server,
+// the menu fetches it when opened, signIn/signOut work without a provider, and
+// a route whose client code calls useSession() wraps itself in
+// <SessionScope> (app/checkout/layout.tsx).
 export default function Providers({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
 
