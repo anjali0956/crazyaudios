@@ -1,3 +1,5 @@
+import { normalizeIndianState } from "@/lib/india";
+
 export const TAX_RATE = 18;
 
 // Orders that are real and must be fulfilled: paid online, or confirmed Cash on Delivery.
@@ -117,7 +119,9 @@ export function getShippingLabel(zone: ShippingZone) {
 }
 
 export function getTaxZone(address?: Partial<Address> | null): TaxZone {
-  const state = normalizeStateName(String(address?.state || ""));
+  const rawState = String(address?.state || "");
+  // "kerela", "KL" etc. count as Kerala; unknown text falls back to the old matching.
+  const state = normalizeStateName(normalizeIndianState(rawState) || rawState);
   return state === normalizeText(SHIPPING_ORIGIN_STATE) ? "intra_state" : "inter_state";
 }
 
@@ -174,11 +178,14 @@ export function calculateShippingFee(
   };
 }
 
+// shippingFee and codFee are both GST-inclusive courier charges; GST is
+// extracted from their sum, and the total is products + shipping + COD fee.
 export function calculateTotals(
   subtotal: number,
   address?: Partial<Address> | null,
   shippingFeeOverride?: number | null,
-  shippingLabelOverride?: string | null
+  shippingLabelOverride?: string | null,
+  codFeeOverride?: number | null
 ) {
   const roundedSubtotal = roundCurrency(subtotal);
   const shipping = calculateShippingFee(
@@ -187,21 +194,24 @@ export function calculateTotals(
     shippingFeeOverride,
     shippingLabelOverride
   );
+  const codFee = roundCurrency(Math.max(0, Number(codFeeOverride) || 0));
+  const courierCharges = roundCurrency(shipping.shippingFee + codFee);
   const productTaxAmount = extractInclusiveTaxAmount(roundedSubtotal, TAX_RATE);
   const productTaxableAmount = getTaxableAmountFromInclusive(roundedSubtotal, TAX_RATE);
   const productTaxBreakdown = getTaxBreakdown(roundedSubtotal, address, TAX_RATE);
-  const shippingTaxAmount = extractInclusiveTaxAmount(shipping.shippingFee, TAX_RATE);
-  const shippingTaxableAmount = getTaxableAmountFromInclusive(shipping.shippingFee, TAX_RATE);
-  const shippingTaxBreakdown = getTaxBreakdown(shipping.shippingFee, address, TAX_RATE);
+  const shippingTaxAmount = extractInclusiveTaxAmount(courierCharges, TAX_RATE);
+  const shippingTaxableAmount = getTaxableAmountFromInclusive(courierCharges, TAX_RATE);
+  const shippingTaxBreakdown = getTaxBreakdown(courierCharges, address, TAX_RATE);
   const taxAmount = roundCurrency(productTaxAmount + shippingTaxAmount);
   const taxableAmount = roundCurrency(productTaxableAmount + shippingTaxableAmount);
-  const totalAmount = roundCurrency(roundedSubtotal + shipping.shippingFee);
+  const totalAmount = roundCurrency(roundedSubtotal + courierCharges);
 
   return {
     subtotal: roundedSubtotal,
     taxableAmount,
     productTaxableAmount,
     shippingFee: shipping.shippingFee,
+    codFee,
     shippingTaxableAmount,
     shippingZone: shipping.shippingZone,
     shippingLabel: shipping.shippingLabel,
@@ -219,8 +229,4 @@ export function calculateTotals(
 
 export function buildReceipt() {
   return `CA-${Date.now()}`;
-}
-
-export function buildInvoiceNumber() {
-  return `INV-${Date.now()}`;
 }

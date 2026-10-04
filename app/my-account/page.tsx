@@ -6,6 +6,20 @@ import { authOptions } from "@/app/api/auth/[...nextauth]/route";
 import dbConnect from "@/lib/mongodb";
 import Order from "@/models/Order";
 import { CONFIRMED_ORDER_STATUSES } from "@/lib/order-utils";
+import { orderInvoicePath, ownedOrdersFilter } from "@/lib/order-access";
+
+type AccountOrder = {
+  _id: { toString(): string };
+  receipt: string;
+  invoiceNumber: string;
+  paymentMethod?: string;
+  createdAt: Date;
+  fulfillmentStatus?: string;
+  estimatedDelivery?: Date | null;
+  totalAmount: number;
+  customerEmail: string;
+  items: Array<{ productId: unknown; name: string; quantity: number; lineTotal: number }>;
+};
 
 function formatStatus(status: string) {
   return status
@@ -26,12 +40,13 @@ export default async function MyAccountPage() {
 
   await dbConnect();
 
-  const orders = await Order.find({
-    $or: [{ userEmail: session.user.email }, { customerEmail: session.user.email }],
-    status: { $in: CONFIRMED_ORDER_STATUSES },
-  })
-    .sort({ createdAt: -1 })
-    .lean();
+  // Only orders placed while signed in to this account (see lib/order-access.ts).
+  const owned = await ownedOrdersFilter(session.user);
+  const orders = owned
+    ? await Order.find({ ...owned, status: { $in: CONFIRMED_ORDER_STATUSES } })
+        .sort({ createdAt: -1 })
+        .lean<AccountOrder[]>()
+    : [];
 
   return (
     <InfoPageShell
@@ -84,7 +99,7 @@ export default async function MyAccountPage() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-100 bg-white">
-                {orders.map((order: any) => (
+                {orders.map((order) => (
                   <tr key={order._id.toString()}>
                     <td className="px-4 py-3 font-semibold text-gray-900">{order.receipt}</td>
                     <td className="px-4 py-3 text-gray-700">{order.invoiceNumber}</td>
@@ -106,7 +121,7 @@ export default async function MyAccountPage() {
                           Track
                         </Link>
                         <a
-                          href={`/api/orders/${order._id.toString()}/invoice`}
+                          href={orderInvoicePath(order)}
                           className="rounded-lg bg-black px-3 py-2 text-xs font-semibold text-white hover:bg-gray-800"
                         >
                           Invoice

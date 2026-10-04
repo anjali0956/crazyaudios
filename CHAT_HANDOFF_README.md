@@ -7,7 +7,7 @@ It captures:
 - major features already implemented
 - important business rules and UI decisions
 - admin panel capabilities
-- payment, invoice, shipping, tracking, and preview-gate behavior
+- payment, invoice, shipping and tracking behavior
 - current known constraints and expectations
 
 Important:
@@ -102,11 +102,14 @@ Important:
   - estimated shipment weight logic
 
 - `middleware.ts`
-  - Preview/password gate
-  - admin protection integration path
+  - admin protection (non-admins are sent to /login?callbackUrl=/admin)
 
-- `lib/preview-access.ts`
-  - shared preview password cookie/token logic
+- `lib/payments.ts`
+  - `markOrderPaid()`: the one routine that turns a prepaid order "paid"
+    (used by verify-payment, the Razorpay webhook and admin reconcile)
+
+- `lib/order-access.ts`
+  - who may see an order (account ownership, signed guest links)
 
 - `models/Product.ts`
   - product schema
@@ -129,25 +132,20 @@ Implemented protection includes:
 - middleware-based handling
 
 ### Preview/private site gate
-The whole site can be temporarily locked behind a single shared password.
+Removed (it was no longer wired into middleware). `PREVIEW_SITE_ENABLED` and
+`PREVIEW_SITE_PASSWORD` are unused and can be deleted from the hosting env.
 
-Behavior:
-- If preview gate is enabled, visitors are redirected to `/preview`
-- Shared password unlock sets cookie
-- Site becomes accessible after successful unlock
-- This includes public site pages
-
-Relevant files:
-- `middleware.ts`
-- `lib/preview-access.ts`
-- `app/preview/page.tsx`
-- `app/preview/PreviewAccessClient.tsx`
-- `app/api/preview-access/route.ts`
-
-Environment variables involved:
-- `PREVIEW_SITE_ENABLED`
-- `PREVIEW_SITE_PASSWORD`
-- `NEXTAUTH_SECRET`
+### Order privacy
+- A signed-in customer sees only orders placed while signed in to that account
+  (`userId` from the session, stored at checkout). The checkout email alone never
+  grants access, because anyone can register any email address.
+- Orders saved before `userId` existed count for an account only if they were placed
+  after the account was created.
+- Guests open one order through a signed link: `orderAccessToken()` =
+  HMAC-SHA256(orderId + receipt, NEXTAUTH_SECRET), base64url. The success page and
+  Track order link the invoice as `/api/orders/<id>/invoice?token=...`.
+- Emails are stored lowercase; lookups are case-insensitive (older rows keep capitals).
+- Login shows one message for unknown email and wrong password.
 
 ---
 
@@ -295,10 +293,20 @@ Relevant file:
 - Customer can choose shipping service based on estimated delivery
 
 ### Weight handling
-Important decision:
-- Do not auto-invent arbitrary weights silently in code anymore
-- Admin has product weight field in grams
-- Shipping depends on stored `weightGrams`
+- Admin has product weight field in grams; shipping uses stored `weightGrams`
+- A product without a weight is still sellable: shipping assumes 50 g per unit
+  (1000 g for speaker/woofer/tweeter categories, 150 g for modules) and logs a
+  server warning naming the product, so the weight can be fixed in Admin
+
+### Live rates, timeout and fallback
+- The rate API call times out after 6 s. On error, timeout or missing config the
+  fallback table is used (customer prices): <=500 g Rs 99, <=1 kg Rs 149,
+  <=2 kg Rs 199, +Rs 60 per extra kg; COD fee max(Rs 40, 2% of products),
+  rounded up to Rs 5; ETA "3–6 days"; `estimated: true`. Free shipping still applies.
+- The quote returns `shippingFee` (without COD) and `codFee` separately, plus
+  `etaDate`, `courierName`, `estimated`, `freeShippingApplied`. Orders store both
+  fees and charge exactly products + shippingFee + codFee. Base/uplift numbers
+  stay inside `lib/shipping-rates.ts`.
 
 ### Courier price uplift rule
 This custom rule was requested:
@@ -340,8 +348,18 @@ Relevant files:
 Integrated using Standard Web Checkout.
 
 Backend:
-- create order route
-- verify payment route
+- create order route (Razorpay order notes carry `internal_order_id` + `receipt`)
+- verify payment route (browser confirmation)
+- webhook `app/api/razorpay/webhook/route.ts` (server confirmation; saves orders
+  when the browser never comes back, e.g. UPI app switch). Razorpay Dashboard ->
+  Settings -> Webhooks: URL `https://www.crazyaudios.com/api/razorpay/webhook`,
+  events `payment.captured` + `order.paid`, secret = `RAZORPAY_WEBHOOK_SECRET`
+- all three paths (and admin "Check with Razorpay") call `markOrderPaid()`: an
+  atomic created -> paid switch, so stock, invoice number, timeline and the Meta
+  Purchase event happen exactly once. If stock ran out after payment the order is
+  still paid and flagged `needsAttention` for a refund or back-order
+- Admin -> Orders & Tracking -> "Payment pending (unverified)" lists online orders
+  not confirmed after 15 minutes; "Check with Razorpay" reconciles the last 7 days
 
 Frontend:
 - checkout loads Razorpay checkout script
@@ -372,6 +390,15 @@ Relevant files:
 ---
 
 ## 10. Invoice PDF
+
+### Numbering and seller details
+- Titled "Tax Invoice" with CrazyAudios branding
+- Sequential numbers `CA/2026-27/000123` per Indian financial year (Apr-Mar),
+  from the `counters` collection, assigned only when an order is paid or a COD
+  order is confirmed (`PENDING-<receipt>` placeholder before that). Older orders
+  keep their `INV-...` numbers
+- Seller block printed only from `INVOICE_SELLER_NAME`, `INVOICE_SELLER_ADDRESS`
+  (use `|` between lines) and `INVOICE_SELLER_GSTIN`; nothing is invented
 
 ### Current status
 Invoice PDF layout was fixed because:
@@ -584,11 +611,12 @@ But later requirement emphasized admin-controlled weights.
 
 Current best interpretation:
 - shipping should rely on actual `weightGrams` values stored in products/admin
-- do not silently invent new weights unless explicitly asked
+- a missing weight no longer blocks checkout: a per-category fallback is used and
+  logged as a warning (see section 8), so fix the weight in Admin when it appears
 
 ---
 
-## 15. Preview / Deployment / Environment Notes
+## 15. Deployment / Environment Notes
 
 ### Environment variables used
 Do **not** paste the values into chat. Only share variable names if needed.
@@ -603,8 +631,8 @@ Important env names:
 - `KALLADA_SHIPPING_API_KEY`
 - `KALLADA_SHIPPING_RATE_API_URL`
 - `KALLADA_PICKUP_PINCODE`
-- `PREVIEW_SITE_ENABLED`
-- `PREVIEW_SITE_PASSWORD`
+- `RAZORPAY_WEBHOOK_SECRET` (secret) – same value as the webhook secret in the Razorpay Dashboard. Without it the webhook answers 503 and logs why.
+- `INVOICE_SELLER_NAME`, `INVOICE_SELLER_ADDRESS`, `INVOICE_SELLER_GSTIN` (optional) – seller details on invoices; printed only when set.
 
 Meta ads, COD and free shipping (all optional; defaults in brackets):
 - `META_CAPI_ACCESS_TOKEN` (secret) – Conversions API token from Events Manager → Settings. Without it, server-side Purchase events are skipped; the browser pixel still works.
@@ -622,12 +650,9 @@ Meta ads, COD and free shipping (all optional; defaults in brackets):
 Product feed for Meta Commerce Manager: `https://www.crazyaudios.com/api/meta-feed`.
 
 ### Deployment notes
-- There were past prerender/build issues with preview pages
-- Those were addressed by separating preview server/client concerns
-
 If deployment fails:
 - inspect build logs for App Router prerender errors
-- especially preview-related routes and dynamic client usage
+- especially dynamic client usage (e.g. useSearchParams without Suspense)
 
 ---
 

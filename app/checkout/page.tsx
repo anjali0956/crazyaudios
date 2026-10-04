@@ -26,6 +26,7 @@ import {
   trackPixelEvent,
 } from "@/lib/meta-pixel";
 import { getStoredAttribution } from "@/lib/attribution";
+import { INDIAN_STATES_AND_UTS } from "@/lib/india";
 
 type CartItem = {
   _id: string;
@@ -46,12 +47,14 @@ type AddressState = {
 
 type ShippingQuote = {
   courierCompanyId: number;
+  // Shipping without the COD fee; the order total is products + shippingFee + codFee.
   shippingFee: number;
-  baseShippingFee: number;
+  codFee?: number;
+  estimated?: boolean;
+  etaDate?: string | null;
   fullShippingFee?: number;
   freeShippingApplied?: boolean;
   cod?: boolean;
-  codCharges?: number;
   shippingLabel: string;
   courierName: string;
   estimatedDeliveryText: string;
@@ -61,7 +64,8 @@ type ShippingQuote = {
     courier_company_id: number;
     name: string;
     rate: number;
-    base_rate?: number;
+    shipping_fee?: number;
+    cod_fee?: number;
     full_rate?: number;
     estimated_delivery_days?: string;
     etd?: string;
@@ -150,15 +154,18 @@ export default function CheckoutPage() {
   );
   const taxLabel = useMemo(() => getTaxLabel(shipping), [shipping]);
   const shippingFee = shippingQuote?.shippingFee || 0;
+  const codFee = shippingQuote?.codFee || 0;
+  // GST is included in both courier charges.
+  const courierCharges = roundCurrency(shippingFee + codFee);
   const productTaxAmount = extractInclusiveTaxAmount(subtotal, TAX_RATE);
   const productTaxBreakdown = useMemo(
     () => getTaxBreakdown(subtotal, shipping, TAX_RATE),
     [subtotal, shipping]
   );
-  const shippingTaxAmount = extractInclusiveTaxAmount(shippingFee, TAX_RATE);
+  const shippingTaxAmount = extractInclusiveTaxAmount(courierCharges, TAX_RATE);
   const shippingTaxBreakdown = useMemo(
-    () => getTaxBreakdown(shippingFee, shipping, TAX_RATE),
-    [shippingFee, shipping]
+    () => getTaxBreakdown(courierCharges, shipping, TAX_RATE),
+    [courierCharges, shipping]
   );
   const totalTaxAmount = roundCurrency(productTaxAmount + shippingTaxAmount);
   const combinedCgstAmount = roundCurrency(
@@ -170,7 +177,7 @@ export default function CheckoutPage() {
   const combinedIgstAmount = roundCurrency(
     productTaxBreakdown.igstAmount + shippingTaxBreakdown.igstAmount
   );
-  const grandTotal = roundCurrency(subtotal + shippingFee);
+  const grandTotal = roundCurrency(subtotal + courierCharges);
   const codAllowed = isCodAllowed(subtotal);
   const amountForFreeShipping = amountLeftForFreeShipping(subtotal);
   const freeShippingApplied = Boolean(shippingQuote?.freeShippingApplied);
@@ -240,11 +247,12 @@ export default function CheckoutPage() {
 
         setShippingQuote(res.data);
         setSelectedCourierCompanyId(Number(res.data?.courierCompanyId || 0) || null);
-      } catch (error: any) {
-        if (axios.isCancel(error) || error?.name === "CanceledError") return;
+      } catch (error) {
+        if (axios.isCancel(error) || (error instanceof Error && error.name === "CanceledError")) return;
         setShippingQuote(null);
         setShippingError(
-          error?.response?.data?.error || "Unable to fetch live courier rate right now"
+          (axios.isAxiosError(error) && error.response?.data?.error) ||
+            "Unable to fetch live courier rate right now"
         );
       } finally {
         setShippingLoading(false);
@@ -367,9 +375,22 @@ export default function CheckoutPage() {
             } else {
               setErrorMessage("Payment verification failed");
             }
-          } catch (error: any) {
+          } catch (error) {
+            const status = axios.isAxiosError(error) ? error.response?.status : undefined;
+            if (!status || status >= 500) {
+              // We couldn't hear back, but the payment may well have gone through
+              // (Razorpay's webhook confirms it). Show the order's real status
+              // rather than inviting a second payment.
+              router.push(
+                `/checkout/success?order=${encodeURIComponent(
+                  order.internal_order_id
+                )}&receipt=${encodeURIComponent(order.receipt)}`
+              );
+              return;
+            }
             setErrorMessage(
-              error?.response?.data?.error || "Payment verification failed"
+              (axios.isAxiosError(error) && error.response?.data?.error) ||
+                "Payment verification failed"
             );
           } finally {
             setIsPaying(false);
@@ -398,18 +419,21 @@ export default function CheckoutPage() {
         },
       });
 
-      razorpay.on("payment.failed", (response: any) => {
+      razorpay.on("payment.failed", (response: unknown) => {
         setIsPaying(false);
         setErrorMessage(
-          response?.error?.description || "Payment failed. Please try again."
+          (response as { error?: { description?: string } } | null)?.error?.description ||
+            "Payment failed. Please try again."
         );
       });
 
       razorpay.open();
-    } catch (error: any) {
+    } catch (error) {
       setIsPaying(false);
       setErrorMessage(
-        error?.response?.data?.error || error?.message || "Failed to start payment"
+        (axios.isAxiosError(error) && error.response?.data?.error) ||
+          (error instanceof Error && error.message) ||
+          "Failed to start payment"
       );
     }
   };
@@ -477,11 +501,18 @@ export default function CheckoutPage() {
             <input
               type="text"
               placeholder="State"
+              list="india-states"
+              autoComplete="address-level1"
               value={shipping.state}
               onChange={(e) => setShipping({ ...shipping, state: e.target.value })}
               className="w-full min-h-11 rounded border p-2"
               required
             />
+            <datalist id="india-states">
+              {INDIAN_STATES_AND_UTS.map((state) => (
+                <option key={state} value={state} />
+              ))}
+            </datalist>
 
             <input
               type="text"
@@ -513,10 +544,10 @@ export default function CheckoutPage() {
                   ? shippingError
                   : shippingQuote?.shippingLabel || "Enter a valid 6-digit pincode to fetch live courier rates"}
               </div>
-              {shippingQuote && !shippingError && !freeShippingApplied ? (
+              {shippingQuote?.estimated && !shippingError ? (
                 <div className="mt-1 text-xs text-blue-700">
-                  Base courier {`Rs ${shippingQuote.baseShippingFee}`} + handling uplift ={" "}
-                  <strong>{`Rs ${shippingQuote.shippingFee}`}</strong>
+                  Live courier rates are unavailable right now, so this is an estimated rate
+                  (delivery in {shippingQuote.estimatedDeliveryText || "3–6 days"}).
                 </div>
               ) : null}
               {shippingQuote && !shippingError && freeShippingApplied ? (
@@ -524,9 +555,9 @@ export default function CheckoutPage() {
                   Free shipping applied on orders over {formatRupees(FREE_SHIPPING_THRESHOLD)}
                 </div>
               ) : null}
-              {shippingQuote?.cod && (shippingQuote.codCharges || 0) > 0 && !shippingError ? (
+              {shippingQuote?.cod && codFee > 0 && !shippingError ? (
                 <div className="mt-1 text-xs text-blue-700">
-                  Includes the courier&apos;s Cash on Delivery charge of Rs {shippingQuote.codCharges}
+                  Cash on Delivery fee: Rs {codFee} (added to your total)
                 </div>
               ) : null}
               {shippingQuote?.courierName ? (
@@ -584,8 +615,8 @@ export default function CheckoutPage() {
                             <p className="font-semibold text-gray-900">
                               {courier.rate === 0 ? "Free" : `Rs ${courier.rate}`}
                             </p>
-                            {courier.base_rate && !freeShippingApplied ? (
-                              <p className="text-xs text-gray-500">Base Rs {courier.base_rate}</p>
+                            {(courier.cod_fee || 0) > 0 ? (
+                              <p className="text-xs text-gray-500">incl. COD fee Rs {courier.cod_fee}</p>
                             ) : null}
                             <p className="text-xs text-gray-500">
                               {courier.rating ? `Rating ${courier.rating}` : "Prepaid"}
@@ -665,6 +696,7 @@ export default function CheckoutPage() {
                 <input
                   type="text"
                   placeholder="State"
+                  list="india-states"
                   value={billing.state}
                   onChange={(e) => setBilling({ ...billing, state: e.target.value })}
                   disabled={sameAsShipping}
@@ -714,7 +746,7 @@ export default function CheckoutPage() {
                     <p className="font-semibold text-gray-900">Cash on Delivery</p>
                     <p className="text-sm text-gray-600">
                       {codAllowed
-                        ? "Pay in cash when your parcel arrives. The courier's COD charge is added to shipping."
+                        ? "Pay in cash when your parcel arrives. A Cash on Delivery fee is added to your total."
                         : `Available on orders up to ${formatRupees(COD_MAX_ORDER_VALUE)}`}
                     </p>
                   </button>
@@ -775,6 +807,12 @@ export default function CheckoutPage() {
                     : `Rs ${shippingFee}`}
               </span>
             </div>
+            {codFee > 0 && !shippingLoading ? (
+              <div className="flex justify-between">
+                <span>Cash on Delivery fee</span>
+                <span>Rs {codFee}</span>
+              </div>
+            ) : null}
             <div className="flex justify-between">
               <div>
                 <span>GST Included ({TAX_RATE}%)</span>

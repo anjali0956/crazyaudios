@@ -55,7 +55,14 @@ const AttributionSchema = new mongoose.Schema(
 const OrderSchema = new mongoose.Schema(
   {
     receipt: { type: String, required: true, unique: true },
+    // CA/2026-27/000123 once paid or COD-confirmed; "PENDING-<receipt>" before
+    // that (see lib/invoice-number.ts). Older orders keep INV-<timestamp>.
     invoiceNumber: { type: String, required: true, unique: true },
+    // Account that placed the order (from the session), null for guest orders.
+    // Deliberately no default: orders saved before this field existed don't
+    // have it, and lib/order-access.ts treats those differently.
+    userId: { type: String, index: true },
+    // Session email of the account that placed the order; "" for guests.
     userEmail: { type: String, default: "", index: true },
     customerEmail: { type: String, required: true, index: true },
     customerName: { type: String, required: true },
@@ -66,7 +73,13 @@ const OrderSchema = new mongoose.Schema(
     subtotal: { type: Number, required: true },
     taxableAmount: { type: Number, required: true },
     productTaxableAmount: { type: Number, default: 0 },
+    // Courier charge without the COD fee (0 with free shipping). Orders saved
+    // before codFee existed have the COD charge folded into shippingFee.
     shippingFee: { type: Number, required: true },
+    codFee: { type: Number, default: 0 },
+    // True when the live courier API was unavailable and the fallback table priced shipping.
+    shippingEstimated: { type: Boolean, default: false },
+    // GST on shippingFee + codFee.
     shippingTaxableAmount: { type: Number, default: 0 },
     taxRate: { type: Number, required: true },
     taxAmount: { type: Number, required: true },
@@ -99,6 +112,14 @@ const OrderSchema = new mongoose.Schema(
     razorpayOrderId: { type: String, required: true, unique: true, index: true },
     razorpayPaymentId: { type: String, default: "" },
     razorpaySignature: { type: String, default: "" },
+    paidAt: { type: Date, default: null },
+    // Which path confirmed the payment: verify-payment, webhook or reconcile.
+    paymentSource: { type: String, default: "" },
+    // Whether this order's items were taken out of stock.
+    stockDeducted: { type: Boolean, default: false },
+    // Set when an order needs a human, e.g. paid but out of stock.
+    needsAttention: { type: Boolean, default: false },
+    attentionReason: { type: String, default: "" },
     attribution: { type: AttributionSchema, default: null },
     metaPurchaseSentAt: { type: Date, default: null },
   },
