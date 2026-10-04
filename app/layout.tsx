@@ -44,6 +44,10 @@ export const viewport: Viewport = {
   initialScale: 1,
 };
 
+// The Pixel only loads in production builds, so `next dev` sessions on a
+// developer's machine don't send PageViews from localhost into the ads dataset.
+const LOAD_META_PIXEL = process.env.NODE_ENV === "production";
+
 export default function RootLayout({
   children,
 }: {
@@ -52,6 +56,7 @@ export default function RootLayout({
   return (
     <html lang="en">
       <head>
+        {LOAD_META_PIXEL ? (
         <Script id="meta-pixel" strategy="afterInteractive">
           {`!function(f,b,e,v,n,t,s)
 {if(f.fbq)return;n=f.fbq=function(){n.callMethod?
@@ -64,10 +69,12 @@ s.parentNode.insertBefore(t,s)}(window, document,'script',
 fbq('init', '${META_PIXEL_ID}');
 fbq('track', 'PageView');`}
         </Script>
+        ) : null}
       </head>
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >
+        {LOAD_META_PIXEL ? (
         <noscript>
           <img
             height="1"
@@ -77,6 +84,7 @@ fbq('track', 'PageView');`}
             alt=""
           />
         </noscript>
+        ) : null}
         <Providers>
           {children}
         </Providers>
