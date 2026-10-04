@@ -12,19 +12,30 @@ export function roundHalfUp(value: number, decimals = 0) {
   return (sign * Math.round(Math.abs(n) * factor + 1e-7)) / factor;
 }
 
-const INR_WHOLE = new Intl.NumberFormat("en-IN", {
-  style: "currency",
-  currency: "INR",
-  minimumFractionDigits: 0,
-  maximumFractionDigits: 0,
-});
+// Formatters are created on first use, not at import: an Intl currency
+// formatter costs several ms of ICU set-up (much more on a phone), and this
+// module ships in every page's JavaScript (cart, toasts) although most pages
+// format no price in the browser.
+let inrWhole: Intl.NumberFormat | undefined;
+let inrPaise: Intl.NumberFormat | undefined;
+let indianNumber: Intl.NumberFormat | undefined;
 
-const INR_PAISE = new Intl.NumberFormat("en-IN", {
-  style: "currency",
-  currency: "INR",
-  minimumFractionDigits: 2,
-  maximumFractionDigits: 2,
-});
+function inrFormatter(withPaise: boolean) {
+  if (withPaise) {
+    return (inrPaise ??= new Intl.NumberFormat("en-IN", {
+      style: "currency",
+      currency: "INR",
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    }));
+  }
+  return (inrWhole ??= new Intl.NumberFormat("en-IN", {
+    style: "currency",
+    currency: "INR",
+    minimumFractionDigits: 0,
+    maximumFractionDigits: 0,
+  }));
+}
 
 /**
  * "₹1,113" for prices of ₹10 and up (whole rupees, half rounds up),
@@ -34,14 +45,14 @@ export function formatINR(value: number) {
   const n = Number(value) || 0;
   const paise = roundHalfUp(n, 2);
   if (Math.abs(paise) < 10 && !Number.isInteger(paise)) {
-    return INR_PAISE.format(paise);
+    return inrFormatter(true).format(paise);
   }
-  return INR_WHOLE.format(roundHalfUp(n, 0));
+  return inrFormatter(false).format(roundHalfUp(n, 0));
 }
 
 /** Plain number with Indian grouping: 125000 -> "1,25,000". */
 export function formatNumber(value: number) {
-  return new Intl.NumberFormat("en-IN").format(Number(value) || 0);
+  return (indianNumber ??= new Intl.NumberFormat("en-IN")).format(Number(value) || 0);
 }
 
 /** Discount label with a true minus sign: 10 -> "−10%". */

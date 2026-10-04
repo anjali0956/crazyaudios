@@ -48,10 +48,13 @@ export type IndianStateOrUT =
   | (typeof INDIAN_UNION_TERRITORIES)[number];
 
 // All 36, alphabetical: use this for a <select>/<datalist>.
+// Plain .sort(): for these ASCII, capitalised names it gives exactly the
+// localeCompare order, without setting up an ICU collator at import time
+// (this module ships with the cart on every page).
 export const INDIAN_STATES_AND_UTS: readonly IndianStateOrUT[] = [
   ...INDIAN_STATES,
   ...INDIAN_UNION_TERRITORIES,
-].sort((a, b) => a.localeCompare(b));
+].sort();
 
 // Lowercase letters only: "Tamil Nadu", "tamilnadu" and "TAMIL-NADU" share a key.
 function stateKey(value: string) {
