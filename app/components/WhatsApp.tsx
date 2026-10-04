@@ -40,39 +40,6 @@ export default function WhatsAppFloatingButton() {
     </a>
   );
 }
-
-export function WhatsAppProductButton({
-  productName,
-  productUrl,
-}: {
-  productName: string;
-  productUrl: string;
-}) {
-  return (
-    <a
-      href={whatsappLink(`Hi CrazyAudios, I have a question about ${productName}: ${productUrl}`)}
-      target="_blank"
-      rel="noopener noreferrer"
-      onClick={() => trackWhatsAppClick("product_page", productName)}
-      className="mb-6 inline-flex min-h-12 w-full items-center justify-center gap-2 rounded-lg border-2 border-[#25D366] bg-white px-6 py-3 text-center text-base font-medium text-[#0b7a3e] transition hover:bg-green-50 sm:ml-3 sm:w-auto"
-    >
-      <WhatsAppIcon className="h-5 w-5 text-[#25D366]" />
-      Ask about this part on WhatsApp
-    </a>
-  );
-}
-
-export function WhatsAppContactLink() {
-  return (
-    <a
-      href={whatsappLink("Hi CrazyAudios, I need help with an order or a part.")}
-      target="_blank"
-      rel="noopener noreferrer"
-      onClick={() => trackWhatsAppClick("contact_page")}
-      className="mt-2 inline-flex items-center gap-2 font-semibold text-[#0b7a3e] hover:underline"
-    >
-      <WhatsAppIcon className="h-5 w-5 text-[#25D366]" />
-      Chat on WhatsApp
-    </a>
-  );
-}
+// The product page and contact page have their own WhatsApp links now
+// (chrome/TrackedLink.tsx, same Contact payload); the old unused variants were
+// removed so they no longer ship with every page.
