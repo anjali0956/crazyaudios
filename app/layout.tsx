@@ -6,7 +6,14 @@ import Providers from "./providers";
 import MetaPixelPageView from "./components/MetaPixelPageView";
 import AttributionCapture from "./components/AttributionCapture";
 import { META_PIXEL_ID } from "@/lib/meta-pixel";
-import { SITE_NAME, SITE_URL } from "@/lib/site";
+import {
+  DEFAULT_OPEN_GRAPH,
+  FACEBOOK_DOMAIN_VERIFICATION,
+  SITE_DESCRIPTION,
+  SITE_NAME,
+  SITE_TITLE,
+  SITE_URL,
+} from "@/lib/site";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -18,23 +25,16 @@ const geistMono = Geist_Mono({
   subsets: ["latin"],
 });
 
-const SITE_DESCRIPTION =
-  "Genuine CA Certified amplifier ICs, transistors and Peerless speaker drivers for DIY audio builders in India. Prices include GST, same-day dispatch on most orders.";
-
 export const metadata: Metadata = {
   metadataBase: new URL(SITE_URL),
   title: {
-    default: `${SITE_NAME} – Genuine Audio ICs, Transistors & Speaker Drivers`,
+    default: SITE_TITLE,
     template: `%s | ${SITE_NAME}`,
   },
   description: SITE_DESCRIPTION,
-  openGraph: {
-    type: "website",
-    siteName: SITE_NAME,
-    locale: "en_IN",
-    title: `${SITE_NAME} – Genuine Audio ICs, Transistors & Speaker Drivers`,
-    description: SITE_DESCRIPTION,
-    images: [{ url: "/crazy-audios-logo.jpg", alt: SITE_NAME }],
+  openGraph: DEFAULT_OPEN_GRAPH,
+  verification: {
+    other: { "facebook-domain-verification": FACEBOOK_DOMAIN_VERIFICATION },
   },
 };
 
