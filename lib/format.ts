@@ -136,7 +136,26 @@ export function brandOf(product: DescribedProduct): string | null {
   const hasManufacturerLine = (product.description || []).some((line) => MANUFACTURER_LINE.test(String(line)));
   const brand = getProductBrand({ ...product, description: product.description ?? undefined });
   if (brand && (brand !== "CrazyAudios" || hasManufacturerLine)) return brand;
-  return brandFromBrandLine(product);
+  return brandFromBrandLine(product) ?? brandFromLooseMakerLine(product);
+}
+
+// Hand-typed maker lines the strict patterns miss: "Brand _TOSHIBA",
+// "MFG- SMC Diode solutions", "MFR-On semi". A separator is required, so prose
+// such as "Brand new design" is never read as a maker.
+const LOOSE_MAKER_LINE = /^\s*(?:brand|manufacturer|mfg|mfr)\s*[-_:–—.]+\s*(\S.*?)\s*$/i;
+
+function brandFromLooseMakerLine(product: DescribedProduct) {
+  for (const line of product.description || []) {
+    const match = String(line).match(LOOSE_MAKER_LINE);
+    if (!match?.[1] || /^generic$/i.test(match[1])) continue;
+    // Shared spelling normalisation first (keeps the Meta feed's spellings), then
+    // "TOSHIBA" -> "Toshiba" while short acronyms (SMC, EVVO) stay as typed.
+    return getProductBrand({ description: [`Manufacturer - ${match[1]}`] })
+      .split(" ")
+      .map((word) => (/^[A-Z]{5,}$/.test(word) ? word.charAt(0) + word.slice(1).toLowerCase() : word))
+      .join(" ");
+  }
+  return null;
 }
 
 export type SpecRow = { label: string; value: string };
@@ -157,7 +176,7 @@ export function specsOf(product: DescribedProduct): ProductSpecs {
   for (const rawLine of product.description || []) {
     const line = String(rawLine ?? "").replace(/\s+/g, " ").trim();
     if (!line || /^no description$/i.test(line)) continue;
-    if (MANUFACTURER_LINE.test(line) || BRAND_LINE.test(line)) continue;
+    if (MANUFACTURER_LINE.test(line) || BRAND_LINE.test(line) || LOOSE_MAKER_LINE.test(line)) continue;
     const match = line.match(SPEC_LINE);
     if (match && match[1].split(" ").length <= 5) {
       specs.push({ label: match[1].trim(), value: match[2].trim() });

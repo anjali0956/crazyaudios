@@ -131,12 +131,19 @@ export function dedupeByDisplayName<T extends Dedupable>(products: T[]): T[] {
 }
 
 /**
- * Product photos known to show the wrong item (spec §16): /pa11.jpg, used by
- * "Waveguide WG 148 R", is byte-identical to /s8.jpg (an 18″ subwoofer).
- * Render a "Photo coming soon" placeholder instead of these. Exported through
- * lib/catalog as well.
+ * Product photos known to show a different item. Render a "Photo coming soon"
+ * placeholder instead of these, everywhere. The database is never changed: once
+ * the owner re-uploads a photo the product gets a new path and shows again.
+ * Exported through lib/catalog as well.
  */
-export const KNOWN_WRONG_IMAGES: readonly string[] = ["/pa11.jpg"];
+export const KNOWN_WRONG_IMAGES: readonly string[] = [
+  // Waveguide WG 148 R: byte-identical to /s8.jpg, an 18″ subwoofer.
+  "/pa11.jpg",
+  // 2SA1941 (a TO-3P power transistor): the upload is "bc547.jpg", a TO-92 BC547.
+  "/api/uploads/6a75f148ca973a917b218508",
+  // "BC557B ON SEMI": the upload is "ksc1815.PNG", the KSC1815 photo.
+  "/api/uploads/6aa576f623d8c48648526cd1",
+];
 
 /** True when a stored photo path (or our own absolute URL) is in KNOWN_WRONG_IMAGES. */
 export function isKnownWrongImage(src: unknown) {
