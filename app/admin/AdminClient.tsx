@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import axios from "axios";
+import PendingPayments from "./PendingPayments";
 
 type Product = {
   _id: string;
@@ -66,6 +67,8 @@ type Order = {
   totalAmount: number;
   status: string;
   paymentMethod?: "prepaid" | "cod";
+  needsAttention?: boolean;
+  attentionReason?: string;
   attribution?: {
     utmSource?: string;
     utmMedium?: string;
@@ -89,6 +92,14 @@ type Order = {
     createdAt?: string;
   }[];
 };
+
+function describeError(error: unknown, fallback: string) {
+  return (
+    (axios.isAxiosError(error) && error.response?.data?.error) ||
+    (error instanceof Error && error.message) ||
+    fallback
+  );
+}
 
 type OrderDraft = {
   fulfillmentStatus: string;
@@ -139,6 +150,7 @@ export default function AdminClient() {
   const [orderStatusDrafts, setOrderStatusDrafts] = useState<Record<string, OrderDraft>>({});
   const [labelSheetSize, setLabelSheetSize] = useState<4 | 8>(4);
   const [labelOrderSlots, setLabelOrderSlots] = useState<Record<number, string>>({});
+  const [showPendingPayments, setShowPendingPayments] = useState(false);
   const productFormRef = useRef<HTMLFormElement | null>(null);
 
   const formatCurrency = (value: number) => `Rs ${Number(value || 0).toFixed(2)}`;
@@ -326,8 +338,8 @@ export default function AdminClient() {
       if (uploadedFiles[0]) {
         setImage(uploadedFiles[0]);
       }
-    } catch (error: any) {
-      alert(error?.response?.data?.error || error?.message || "Could not upload image");
+    } catch (error) {
+      alert(describeError(error, "Could not upload image"));
     } finally {
       setImageUploading(false);
       event.target.value = "";
@@ -346,8 +358,8 @@ export default function AdminClient() {
           [...prev.split("\n").map((item) => item.trim()).filter(Boolean), ...uploadedFiles].join("\n")
         );
       }
-    } catch (error: any) {
-      alert(error?.response?.data?.error || error?.message || "Could not upload extra images");
+    } catch (error) {
+      alert(describeError(error, "Could not upload extra images"));
     } finally {
       setExtraImagesUploading(false);
       event.target.value = "";
@@ -371,8 +383,8 @@ export default function AdminClient() {
           setHomeBannerRight(uploadedFiles[0]);
         }
       }
-    } catch (error: any) {
-      alert(error?.response?.data?.error || error?.message || "Could not upload banner");
+    } catch (error) {
+      alert(describeError(error, "Could not upload banner"));
     } finally {
       setHomeBannerUploading(null);
       event.target.value = "";
@@ -396,12 +408,8 @@ export default function AdminClient() {
 
       await fetchOrders();
       alert("Order tracking updated");
-    } catch (error: any) {
-      alert(
-        error?.response?.data?.error ||
-          error?.message ||
-          "Could not update order status"
-      );
+    } catch (error) {
+      alert(describeError(error, "Could not update order status"));
     }
   };
 
@@ -893,6 +901,13 @@ export default function AdminClient() {
               </div>
               <div className="flex flex-wrap gap-2">
                 <button
+                  type="button"
+                  onClick={() => setShowPendingPayments((current) => !current)}
+                  className="self-start rounded-lg border border-amber-300 bg-amber-50 px-4 py-2 font-semibold text-amber-900 hover:bg-amber-100"
+                >
+                  {showPendingPayments ? "Hide payment pending" : "Payment pending (unverified)"}
+                </button>
+                <button
                   onClick={fetchOrders}
                   className="self-start rounded-lg bg-black px-4 py-2 text-white"
                 >
@@ -900,6 +915,8 @@ export default function AdminClient() {
                 </button>
               </div>
             </div>
+
+            {showPendingPayments ? <PendingPayments onReconciled={fetchOrders} /> : null}
 
             <div className="mb-5 rounded-xl border border-blue-200 bg-blue-50 p-4">
               <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
@@ -1007,6 +1024,14 @@ export default function AdminClient() {
                               {String(order.status || "paid").toUpperCase()}
                             </span>
                           )}
+                          {order.needsAttention ? (
+                            <span
+                              title={order.attentionReason || ""}
+                              className="ml-1 rounded-full bg-red-100 px-2.5 py-1 text-xs font-semibold text-red-700"
+                            >
+                              NEEDS ATTENTION
+                            </span>
+                          ) : null}
                         </td>
                         <td className="px-4 py-3">
                           <span
@@ -1082,6 +1107,11 @@ export default function AdminClient() {
                           <p className="mt-2 rounded-lg bg-amber-50 px-3 py-2 text-sm font-semibold text-amber-900">
                             Cash on Delivery – collect {formatCurrency(selectedOrder.totalAmount)}. Book
                             this shipment as COD with the courier.
+                          </p>
+                        ) : null}
+                        {selectedOrder.needsAttention ? (
+                          <p className="mt-2 rounded-lg bg-red-50 px-3 py-2 text-sm font-semibold text-red-800">
+                            Needs attention: {selectedOrder.attentionReason || "check this order"}
                           </p>
                         ) : null}
                         {selectedOrder.attribution?.utmSource || selectedOrder.attribution?.fbclid ? (
