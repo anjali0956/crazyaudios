@@ -5,6 +5,7 @@ import "./globals.css";
 import Providers from "./providers";
 import MetaPixelPageView from "./components/MetaPixelPageView";
 import AttributionCapture from "./components/AttributionCapture";
+import WhatsAppFloatingButton from "./components/WhatsApp";
 import { META_PIXEL_ID } from "@/lib/meta-pixel";
 import {
   DEFAULT_OPEN_GRAPH,
@@ -81,6 +82,7 @@ fbq('track', 'PageView');`}
         </Providers>
         <MetaPixelPageView />
         <AttributionCapture />
+        <WhatsAppFloatingButton />
       </body>
     </html>
   );

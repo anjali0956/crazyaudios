@@ -615,6 +615,7 @@ Meta ads, COD and free shipping (all optional; defaults in brackets):
 - `NEXT_PUBLIC_FREE_SHIPPING_THRESHOLD` [`1499`] – products total (incl. GST) for free standard shipping; `0` turns it off.
 - `NEXT_PUBLIC_COD_ENABLED` [on] – set to `false` to turn Cash on Delivery off.
 - `NEXT_PUBLIC_COD_MAX_ORDER_VALUE` [`5000`] – largest products total allowed for COD.
+- `NEXT_PUBLIC_WHATSAPP_NUMBER` [`917907570000`] – WhatsApp Business number for the chat buttons (digits, with country code).
 
 `NEXT_PUBLIC_*` values are baked in at build time, so changing them needs a redeploy.
 

@@ -1,4 +1,5 @@
 import InfoPageShell from "@/app/components/InfoPageShell";
+import { WhatsAppContactLink } from "@/app/components/WhatsApp";
 
 export default function ContactUsPage() {
   return (
@@ -12,8 +13,9 @@ export default function ContactUsPage() {
       </section>
 
       <section>
-        <h2 className="text-xl font-semibold text-gray-900">Phone</h2>
+        <h2 className="text-xl font-semibold text-gray-900">Phone and WhatsApp</h2>
         <p className="mt-2">+91-7907570000</p>
+        <WhatsAppContactLink />
       </section>
 
       <section>

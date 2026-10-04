@@ -30,3 +30,13 @@ export const DEFAULT_OPEN_GRAPH = {
 
 // Meta Business Suite → Brand safety → Domains → crazyaudios.com (meta-tag method).
 export const FACEBOOK_DOMAIN_VERIFICATION = "x4rqaf6ittig70qbdjxtqasxryc0kw";
+
+// WhatsApp Business number for chat links: digits only, with country code.
+export const WHATSAPP_NUMBER = (process.env.NEXT_PUBLIC_WHATSAPP_NUMBER || "917907570000").replace(
+  /\D/g,
+  ""
+);
+
+export function whatsappLink(message: string) {
+  return `https://wa.me/${WHATSAPP_NUMBER}?text=${encodeURIComponent(message)}`;
+}
