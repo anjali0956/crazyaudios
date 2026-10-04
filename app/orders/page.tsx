@@ -5,6 +5,20 @@ import { authOptions } from "@/app/api/auth/[...nextauth]/route";
 import dbConnect from "@/lib/mongodb";
 import Order from "@/models/Order";
 import { CONFIRMED_ORDER_STATUSES } from "@/lib/order-utils";
+import { orderInvoicePath, ownedOrdersFilter } from "@/lib/order-access";
+
+type AccountOrder = {
+  _id: { toString(): string };
+  receipt: string;
+  invoiceNumber: string;
+  paymentMethod?: string;
+  createdAt: Date;
+  fulfillmentStatus?: string;
+  estimatedDelivery?: Date | null;
+  totalAmount: number;
+  customerEmail: string;
+  items: Array<{ productId: unknown; name: string; quantity: number; lineTotal: number }>;
+};
 
 function formatStatus(status: string) {
   return status
@@ -21,12 +35,13 @@ export default async function OrdersPage() {
 
   await dbConnect();
 
-  const orders = await Order.find({
-    $or: [{ userEmail: session.user.email }, { customerEmail: session.user.email }],
-    status: { $in: CONFIRMED_ORDER_STATUSES },
-  })
-    .sort({ createdAt: -1 })
-    .lean();
+  // Only orders placed while signed in to this account (see lib/order-access.ts).
+  const owned = await ownedOrdersFilter(session.user);
+  const orders = owned
+    ? await Order.find({ ...owned, status: { $in: CONFIRMED_ORDER_STATUSES } })
+        .sort({ createdAt: -1 })
+        .lean<AccountOrder[]>()
+    : [];
 
   return (
     <main className="min-h-screen bg-gray-100 px-4 py-8 text-black sm:px-8 lg:px-12">
@@ -39,7 +54,7 @@ export default async function OrdersPage() {
           </div>
         ) : (
           <div className="space-y-5">
-            {orders.map((order: any) => (
+            {orders.map((order) => (
               <div key={order._id.toString()} className="rounded-xl bg-white p-6 shadow">
                 <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                   <div>
@@ -72,7 +87,7 @@ export default async function OrdersPage() {
                 </div>
 
                 <div className="mt-5 space-y-2 border-t pt-4">
-                  {order.items.map((item: any) => (
+                  {order.items.map((item) => (
                     <div
                       key={`${order._id}-${item.productId}`}
                       className="flex justify-between gap-4 text-sm sm:text-base"
@@ -93,7 +108,7 @@ export default async function OrdersPage() {
                     Track Order
                   </Link>
                   <a
-                    href={`/api/orders/${order._id.toString()}/invoice`}
+                    href={orderInvoicePath(order)}
                     className="inline-flex items-center justify-center rounded-full bg-[#352f8f] px-6 py-3 font-semibold text-white"
                   >
                     Download Invoice PDF

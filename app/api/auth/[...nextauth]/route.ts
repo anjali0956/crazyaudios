@@ -4,6 +4,11 @@ import dbConnect from "@/lib/mongodb";
 import User from "@/models/User";
 import bcrypt from "bcryptjs";
 import type { NextAuthOptions } from "next-auth";
+import { emailMatcher, normalizeEmail } from "@/lib/email";
+
+// Compared against when the email is unknown, so a wrong email takes as long
+// as a wrong password and the two can't be told apart.
+const DUMMY_PASSWORD_HASH = "$2b$10$fSmAmM4yf9euItVoeNsi9u98B0YfvsZjyrqpGqStNOjIRHRRjctTG";
 
 export const authOptions: NextAuthOptions = {
   providers: [
@@ -15,20 +20,26 @@ export const authOptions: NextAuthOptions = {
         password: { label: "Password", type: "password" }
       },
 
+      // Returns null for every failure: the login form shows one message for
+      // "no such account" and "wrong password".
       async authorize(credentials) {
-        if (!credentials) return null;
+        const email = normalizeEmail(credentials?.email);
+        const password = String(credentials?.password ?? "");
+        if (!email || !password) return null;
 
         await dbConnect();
 
-        const user = await User.findOne({ email: credentials.email });
-        if (!user) throw new Error("User not found");
+        // New accounts are stored lowercase; older ones may have capitals.
+        const user =
+          (await User.findOne({ email })) || (await User.findOne({ email: emailMatcher(email) }));
 
-        const isValid = await bcrypt.compare(
-          credentials.password,
-          user.password
-        );
+        if (!user?.password) {
+          await bcrypt.compare(password, DUMMY_PASSWORD_HASH);
+          return null;
+        }
 
-        if (!isValid) throw new Error("Invalid password");
+        const isValid = await bcrypt.compare(password, user.password);
+        if (!isValid) return null;
 
         return {
           id: user._id.toString(),
@@ -49,6 +60,8 @@ export const authOptions: NextAuthOptions = {
     async session({ session, token }) {
       if (session.user) {
         session.user.role = token.role as string;
+        // Account id (JWT subject); orders are linked to it at checkout.
+        session.user.id = token.sub;
       }
       return session;
     }

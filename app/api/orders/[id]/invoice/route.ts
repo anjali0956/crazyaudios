@@ -1,10 +1,17 @@
 import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
-import { PDFDocument, StandardFonts, rgb } from "pdf-lib";
+import mongoose from "mongoose";
+import { PDFDocument, StandardFonts, rgb, type PDFFont, type PDFPage } from "pdf-lib";
 import dbConnect from "@/lib/mongodb";
 import Order from "@/models/Order";
 import { authOptions } from "@/app/api/auth/[...nextauth]/route";
 import { CONFIRMED_ORDER_STATUSES, getTaxBreakdown, roundCurrency } from "@/lib/order-utils";
+import { isOrderOwnedBy, isValidOrderAccessToken } from "@/lib/order-access";
+import { assignInvoiceNumber, isPendingInvoiceNumber } from "@/lib/invoice-number";
+import { SITE_NAME, SITE_URL } from "@/lib/site";
+
+export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
 
 // The built-in PDF fonts use WinAnsi encoding, so normalize text supplied by
 // customers/products before measuring or drawing it. This prevents one smart
@@ -12,16 +19,16 @@ import { CONFIRMED_ORDER_STATUSES, getTaxBreakdown, roundCurrency } from "@/lib/
 function toPdfText(value: unknown) {
   return String(value ?? "")
     .normalize("NFKD")
-    .replace(/[\u0300-\u036f]/g, "")
-    .replace(/\u20b9/g, "Rs ")
-    .replace(/[\u2018\u2019\u2032]/g, "'")
-    .replace(/[\u201c\u201d\u2033]/g, '"')
-    .replace(/[\u2013\u2014]/g, "-")
-    .replace(/\u2026/g, "...")
+    .replace(/[̀-ͯ]/g, "")
+    .replace(/₹/g, "Rs ")
+    .replace(/[‘’′]/g, "'")
+    .replace(/[“”″]/g, '"')
+    .replace(/[–—]/g, "-")
+    .replace(/…/g, "...")
     .replace(/[^\x20-\x7e]/g, "?");
 }
 
-function wrapText(text: string, maxWidth: number, font: any, size: number) {
+function wrapText(text: string, maxWidth: number, font: PDFFont, size: number) {
   const words = toPdfText(text).split(/\s+/).filter(Boolean);
   const lines: string[] = [];
   let current = "";
@@ -51,36 +58,181 @@ function wrapText(text: string, maxWidth: number, font: any, size: number) {
   return lines.length ? lines : [""];
 }
 
-export async function GET(
-  _req: Request,
-  context: { params: Promise<{ id: string }> }
-) {
-  try {
-    const session = await getServerSession(authOptions);
+function escapeHtml(value: string) {
+  return value
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;");
+}
 
-    if (!session?.user?.email) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+// Customers open invoice links in a browser: answer problems with a readable page, not JSON.
+function messagePage(
+  status: number,
+  title: string,
+  message: string,
+  links: Array<{ href: string; label: string }>
+) {
+  const buttons = links
+    .map(
+      (link, index) =>
+        `<a href="${escapeHtml(link.href)}"${index ? ' class="secondary"' : ""}>${escapeHtml(link.label)}</a>`
+    )
+    .join("");
+  const html = `<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex"><title>${escapeHtml(title)} | ${SITE_NAME}</title>
+<style>
+body{margin:0;font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;background:#F7F5F0;color:#121416}
+main{max-width:480px;margin:12vh auto;padding:0 16px}h1{font-size:22px;line-height:1.25;margin:0 0 8px}
+p{color:#3A3F47;line-height:1.5;margin:0 0 16px}
+a{display:inline-block;margin:0 12px 12px 0;padding:12px 18px;border-radius:10px;background:#121416;color:#fff;text-decoration:none;font-weight:600}
+a.secondary{background:#fff;color:#121416;border:1px solid #CFC9BC}
+</style></head>
+<body><main><h1>${escapeHtml(title)}</h1><p>${escapeHtml(message)}</p>${buttons}</main></body></html>`;
+
+  return new NextResponse(html, {
+    status,
+    headers: {
+      "Content-Type": "text/html; charset=utf-8",
+      "Cache-Control": "no-store",
+      "X-Robots-Tag": "noindex",
+    },
+  });
+}
+
+function sellerDetails() {
+  const name = String(process.env.INVOICE_SELLER_NAME || "").trim();
+  const address = String(process.env.INVOICE_SELLER_ADDRESS || "")
+    .split(/\r?\n|\\n|\|/)
+    .map((line) => line.trim())
+    .filter(Boolean);
+  const gstin = String(process.env.INVOICE_SELLER_GSTIN || "").trim().toUpperCase();
+  return { name, address, gstin };
+}
+
+function formatDate(value: unknown) {
+  const date = value ? new Date(value as string) : null;
+  if (!date || Number.isNaN(date.getTime())) return "-";
+  return date.toLocaleDateString("en-IN", {
+    timeZone: "Asia/Kolkata",
+    day: "2-digit",
+    month: "short",
+    year: "numeric",
+  });
+}
+
+function formatAmount(value: unknown) {
+  return `Rs ${roundCurrency(Number(value || 0)).toLocaleString("en-IN", {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  })}`;
+}
+
+type InvoiceAddress = {
+  name?: string;
+  email?: string;
+  phone?: string;
+  address?: string;
+  city?: string;
+  state?: string;
+  pincode?: string;
+};
+
+type InvoiceOrder = {
+  _id: mongoose.Types.ObjectId;
+  receipt: string;
+  invoiceNumber: string;
+  status: string;
+  paymentMethod?: string;
+  userId?: string | null;
+  userEmail?: string;
+  customerName?: string;
+  customerEmail?: string;
+  customerPhone?: string;
+  shippingAddress?: InvoiceAddress;
+  billingAddress?: InvoiceAddress;
+  items: Array<{ name?: string; quantity?: number; unitPrice?: number; lineTotal?: number }>;
+  subtotal: number;
+  shippingFee: number;
+  codFee?: number;
+  taxRate: number;
+  taxAmount: number;
+  totalAmount: number;
+  paidAt?: Date | null;
+  createdAt?: Date;
+};
+
+export async function GET(req: Request, context: { params: Promise<{ id: string }> }) {
+  try {
+    const { id } = await context.params;
+    const token = new URL(req.url).searchParams.get("token") || "";
+    const trackLink = { href: "/track-your-order", label: "Track your order" };
+
+    if (!mongoose.isValidObjectId(id)) {
+      return messagePage(404, "We couldn't find that invoice", "Please check the link from your order confirmation.", [
+        trackLink,
+      ]);
     }
 
-    const { id } = await context.params;
     await dbConnect();
-
-    const order = await Order.findById(id).lean();
+    const order = await Order.findById(id).lean<InvoiceOrder>();
 
     if (!order) {
-      return NextResponse.json({ error: "Order not found" }, { status: 404 });
+      return messagePage(404, "We couldn't find that invoice", "Please check the link from your order confirmation.", [
+        trackLink,
+      ]);
     }
 
-    const isAdmin = session.user.role === "admin";
-    const isOrderOwner =
-      order.userEmail === session.user.email || order.customerEmail === session.user.email;
+    // A signed link opens the invoice for anyone holding it (guest checkouts);
+    // otherwise the signed-in account must own the order, or be an admin.
+    let allowed = isValidOrderAccessToken(String(order._id), order.receipt, token);
+    let signedIn = false;
+    if (!allowed) {
+      const session = await getServerSession(authOptions);
+      signedIn = Boolean(session?.user);
+      allowed =
+        session?.user?.role === "admin" || (await isOrderOwnedBy(order, session?.user));
+    }
 
-    if (!CONFIRMED_ORDER_STATUSES.includes(order.status) || (!isAdmin && !isOrderOwner)) {
-      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    if (!allowed) {
+      return signedIn
+        ? messagePage(
+            403,
+            "This invoice isn't linked to your account",
+            "If you checked out as a guest, use the invoice link on your order confirmation page, or find the order with Track your order.",
+            [trackLink, { href: "/orders", label: "My orders" }]
+          )
+        : messagePage(
+            401,
+            "Sign in to download this invoice",
+            "Invoices open for the account that placed the order, or through the link on your order confirmation and Track your order pages.",
+            [
+              { href: `/login?callbackUrl=${encodeURIComponent(`/api/orders/${id}/invoice`)}`, label: "Sign in" },
+              trackLink,
+            ]
+          );
+    }
+
+    if (!CONFIRMED_ORDER_STATUSES.includes(order.status)) {
+      return messagePage(
+        409,
+        "Your invoice isn't ready yet",
+        "The invoice is issued once the payment is confirmed. If you have paid, this usually takes a few minutes.",
+        [trackLink]
+      );
+    }
+
+    // Paid orders whose number assignment failed earlier get it now.
+    let invoiceNumber = order.invoiceNumber;
+    if (isPendingInvoiceNumber(invoiceNumber)) {
+      invoiceNumber = (await assignInvoiceNumber(order._id)) || invoiceNumber;
     }
 
     const pdfDoc = await PDFDocument.create();
-    const page = pdfDoc.addPage([595, 842]);
+    pdfDoc.setTitle(`Tax Invoice ${invoiceNumber}`);
+    pdfDoc.setAuthor(SITE_NAME);
+    let page: PDFPage = pdfDoc.addPage([595, 842]);
     const font = await pdfDoc.embedFont(StandardFonts.Helvetica);
     const boldFont = await pdfDoc.embedFont(StandardFonts.HelveticaBold);
     const pageWidth = page.getWidth();
@@ -88,26 +240,28 @@ export async function GET(
     const rightX = 320;
     const contentWidth = pageWidth - leftX * 2;
     const lineHeight = 16;
+    const grey = rgb(0.38, 0.4, 0.44);
+
+    let y = 790;
+    // Starts a new page when the next block wouldn't fit above the margin.
+    const ensureSpace = (needed: number) => {
+      if (y - needed >= 50) return;
+      page = pdfDoc.addPage([595, 842]);
+      y = 790;
+    };
 
     const drawWrappedBlock = (
       lines: string[],
       x: number,
-      startY: number,
       size = 11,
-      textFont = font
+      textFont = font,
+      color = rgb(0, 0, 0)
     ) => {
-      let currentY = startY;
       for (const line of lines) {
-        page.drawText(toPdfText(line), {
-          x,
-          y: currentY,
-          size,
-          font: textFont,
-          color: rgb(0, 0, 0),
-        });
-        currentY -= lineHeight;
+        ensureSpace(lineHeight);
+        page.drawText(toPdfText(line), { x, y, size, font: textFont, color });
+        y -= lineHeight;
       }
-      return currentY;
     };
 
     const drawRightAlignedText = (
@@ -128,73 +282,85 @@ export async function GET(
       });
     };
 
-    const formatAmount = (value: unknown) => `Rs ${roundCurrency(Number(value || 0))}`;
+    const drawRule = (thickness = 1) => {
+      page.drawLine({
+        start: { x: leftX, y },
+        end: { x: pageWidth - leftX, y },
+        thickness,
+        color: rgb(0.82, 0.82, 0.82),
+      });
+    };
 
-    let y = 790;
-    page.drawText("ElectroSupply Invoice", {
-      x: 50,
-      y,
-      size: 22,
-      font: boldFont,
-      color: rgb(0, 0, 0),
-    });
-    y -= 30;
+    // Header: brand on the left, document title on the right.
+    page.drawText(SITE_NAME, { x: leftX, y, size: 22, font: boldFont, color: rgb(0, 0, 0) });
+    drawRightAlignedText("Tax Invoice", pageWidth - leftX, y + 2, 18, boldFont);
+    y -= 16;
+    page.drawText(toPdfText(SITE_URL.replace(/^https?:\/\//, "")), { x: leftX, y, size: 9, font, color: grey });
+    y -= 22;
 
-    const fromLines = [
-      "FROM",
-      "ELECTROSUPPLY",
-      "NAKKARA COMPLEX",
-      "Town Hall Road",
-      "Irinjalakuda, Thrissur, Kerala",
-      "PIN - 680121",
-    ];
+    // Seller identity is printed only from configured values, never invented.
+    const seller = sellerDetails();
+    if (seller.name || seller.address.length || seller.gstin) {
+      drawWrappedBlock(["Sold by"], leftX, 10, boldFont);
+      const sellerLines = [
+        seller.name,
+        ...seller.address,
+        seller.gstin ? `GSTIN: ${seller.gstin}` : "",
+      ]
+        .filter(Boolean)
+        .flatMap((line) => wrapText(line, contentWidth, font, 10));
+      drawWrappedBlock(sellerLines, leftX, 10, font);
+      y -= 6;
+    }
 
-    y = drawWrappedBlock(fromLines, leftX, y, 10, font);
-    y -= 10;
-
+    const shippingAddress = order.shippingAddress || {};
     const info = [
-      `Invoice Number: ${order.invoiceNumber}`,
-      `Receipt: ${order.receipt}`,
-      `Order Date: ${new Date(order.createdAt).toLocaleString("en-IN")}`,
-      `Customer: ${order.customerName}`,
-      `Email: ${order.customerEmail}`,
-      `Phone: ${order.customerPhone}`,
+      `Invoice No: ${invoiceNumber}`,
+      `Invoice Date: ${formatDate(order.paymentMethod === "cod" ? order.createdAt : order.paidAt || order.createdAt)}`,
+      `Order Ref: ${order.receipt}`,
+      `Order Date: ${formatDate(order.createdAt)}`,
+      `Payment: ${order.paymentMethod === "cod" ? "Cash on Delivery" : "Paid online (Razorpay)"}`,
+      `Place of Supply: ${shippingAddress.state || "-"}`,
+      `Customer: ${order.customerName || ""}`,
+      `Email: ${order.customerEmail || ""}`,
+      `Phone: ${order.customerPhone || ""}`,
     ];
-
-    y = drawWrappedBlock(info, leftX, y, 11, font);
+    drawWrappedBlock(info, leftX, 11, font);
 
     y -= 6;
-    page.drawLine({
-      start: { x: leftX, y },
-      end: { x: pageWidth - leftX, y },
-      thickness: 1,
-      color: rgb(0.82, 0.82, 0.82),
-    });
+    drawRule();
     y -= 22;
 
+    const addressLines = (address: InvoiceAddress) =>
+      [
+        address.name,
+        address.address,
+        `${address.city || ""}, ${address.state || ""} - ${address.pincode || ""}`,
+        `Phone: ${address.phone || ""}`,
+      ].flatMap((line) => wrapText(String(line || ""), contentWidth, font, 11));
+
+    const billingAddress = order.billingAddress || shippingAddress;
+    ensureSpace(80);
     page.drawText("Billing Address", { x: leftX, y, size: 13, font: boldFont });
     y -= 20;
+    drawWrappedBlock(addressLines(billingAddress), leftX, 11, font);
 
-    const billingAddress = order.billingAddress || order.shippingAddress;
-    const billingLines = [
-      billingAddress?.name,
-      billingAddress?.address,
-      `${billingAddress?.city || ""}, ${billingAddress?.state || ""} - ${billingAddress?.pincode || ""}`,
-      `Phone: ${billingAddress?.phone || ""}`,
-    ].flatMap((line) => wrapText(String(line || ""), contentWidth, font, 11));
+    const sameAddress =
+      JSON.stringify(addressLines(billingAddress)) === JSON.stringify(addressLines(shippingAddress));
+    if (!sameAddress) {
+      y -= 8;
+      ensureSpace(80);
+      page.drawText("Shipping Address", { x: leftX, y, size: 13, font: boldFont });
+      y -= 20;
+      drawWrappedBlock(addressLines(shippingAddress), leftX, 11, font);
+    }
 
-    y = drawWrappedBlock(billingLines, leftX, y, 11, font);
     y -= 10;
-
-    page.drawLine({
-      start: { x: leftX, y },
-      end: { x: pageWidth - leftX, y },
-      thickness: 1,
-      color: rgb(0.82, 0.82, 0.82),
-    });
+    drawRule();
     y -= 22;
 
-    page.drawText("Items", { x: 50, y, size: 13, font: boldFont });
+    ensureSpace(80);
+    page.drawText("Items", { x: leftX, y, size: 13, font: boldFont });
     y -= 20;
 
     const qtyRightX = 390;
@@ -210,91 +376,93 @@ export async function GET(
     drawRightAlignedText("(Incl. GST)", unitPriceRightX, y, 8, boldFont);
     drawRightAlignedText("(Incl. GST)", lineTotalRightX, y, 8, boldFont);
     y -= 10;
-
-    page.drawLine({
-      start: { x: leftX, y },
-      end: { x: pageWidth - leftX, y },
-      thickness: 0.8,
-      color: rgb(0.85, 0.85, 0.85),
-    });
+    drawRule(0.8);
     y -= 16;
 
-    for (const item of order.items) {
+    for (const item of order.items || []) {
       const itemLines = wrapText(String(item.name || ""), productColumnWidth, font, 10);
+      ensureSpace(itemLines.length * 14 + 6);
       const itemStartY = y;
-      let itemY = y;
 
       for (const line of itemLines) {
-        page.drawText(line, { x: leftX, y: itemY, size: 10, font });
-        itemY -= 14;
+        page.drawText(line, { x: leftX, y, size: 10, font });
+        y -= 14;
       }
 
       drawRightAlignedText(String(item.quantity), qtyRightX, itemStartY, 10, font);
       drawRightAlignedText(formatAmount(item.unitPrice), unitPriceRightX, itemStartY, 10, font);
       drawRightAlignedText(formatAmount(item.lineTotal), lineTotalRightX, itemStartY, 10, font);
 
-      y = itemY - 6;
+      y -= 6;
     }
 
     y -= 4;
-    page.drawLine({
-      start: { x: leftX, y },
-      end: { x: pageWidth - leftX, y },
-      thickness: 1,
-      color: rgb(0.82, 0.82, 0.82),
-    });
+    drawRule();
     y -= 24;
 
-    const productTaxBreakdown = getTaxBreakdown(order.subtotal, order.shippingAddress, order.taxRate);
-    const shippingTaxBreakdown = getTaxBreakdown(order.shippingFee, order.shippingAddress, order.taxRate);
-    const combinedCgstAmount = roundCurrency(
-      productTaxBreakdown.cgstAmount + shippingTaxBreakdown.cgstAmount
-    );
-    const combinedSgstAmount = roundCurrency(
-      productTaxBreakdown.sgstAmount + shippingTaxBreakdown.sgstAmount
-    );
-    const combinedIgstAmount = roundCurrency(
-      productTaxBreakdown.igstAmount + shippingTaxBreakdown.igstAmount
-    );
+    // GST on courier charges covers shipping + COD fee (both GST-inclusive).
+    const codFee = Number(order.codFee || 0);
+    const courierCharges = roundCurrency(Number(order.shippingFee || 0) + codFee);
+    const productTaxBreakdown = getTaxBreakdown(order.subtotal, shippingAddress, order.taxRate);
+    const shippingTaxBreakdown = getTaxBreakdown(courierCharges, shippingAddress, order.taxRate);
+    const combinedCgstAmount = roundCurrency(productTaxBreakdown.cgstAmount + shippingTaxBreakdown.cgstAmount);
+    const combinedSgstAmount = roundCurrency(productTaxBreakdown.sgstAmount + shippingTaxBreakdown.sgstAmount);
+    const combinedIgstAmount = roundCurrency(productTaxBreakdown.igstAmount + shippingTaxBreakdown.igstAmount);
 
     const summaryLines = [
-      `Products Total (incl. GST): Rs ${order.subtotal}`,
-      `Courier (incl. GST): Rs ${order.shippingFee}`,
-      `GST Included (${order.taxRate}%): Rs ${order.taxAmount}`,
+      `Products Total (incl. GST): ${formatAmount(order.subtotal)}`,
+      Number(order.shippingFee || 0) > 0
+        ? `Shipping (incl. GST): ${formatAmount(order.shippingFee)}`
+        : "Shipping: FREE",
     ];
+    if (codFee > 0) summaryLines.push(`Cash on Delivery fee (incl. GST): ${formatAmount(codFee)}`);
+    summaryLines.push(`GST Included (${order.taxRate}%): ${formatAmount(order.taxAmount)}`);
 
     if (productTaxBreakdown.zone === "intra_state") {
-      summaryLines.push(
-        `CGST (${productTaxBreakdown.cgstRate}%): Rs ${combinedCgstAmount}  |  SGST (${productTaxBreakdown.sgstRate}%): Rs ${combinedSgstAmount}`
-      );
+      summaryLines.push(`CGST (${productTaxBreakdown.cgstRate}%): ${formatAmount(combinedCgstAmount)}`);
+      summaryLines.push(`SGST (${productTaxBreakdown.sgstRate}%): ${formatAmount(combinedSgstAmount)}`);
     } else {
-      summaryLines.push(`IGST (${productTaxBreakdown.igstRate}%): Rs ${combinedIgstAmount}`);
+      summaryLines.push(`IGST (${productTaxBreakdown.igstRate}%): ${formatAmount(combinedIgstAmount)}`);
     }
 
-    y = drawWrappedBlock(summaryLines, rightX, y, 11, font);
+    ensureSpace(summaryLines.length * lineHeight + 40);
+    drawWrappedBlock(summaryLines, rightX, 11, font);
     y -= 2;
     const totalLabel =
       order.paymentMethod === "cod" ? "Amount Payable on Delivery (Cash)" : "Total Paid";
-    page.drawText(`${totalLabel}: Rs ${order.totalAmount}`, {
+    page.drawText(toPdfText(`${totalLabel}: ${formatAmount(order.totalAmount)}`), {
       x: rightX,
       y,
       size: 12,
       font: boldFont,
     });
+    y -= 36;
+
+    ensureSpace(20);
+    page.drawText("This is a computer-generated invoice. Prices include GST.", {
+      x: leftX,
+      y,
+      size: 8,
+      font,
+      color: grey,
+    });
 
     const pdfBytes = await pdfDoc.save();
+    const fileName = `${SITE_NAME}-${invoiceNumber}`.replace(/[^A-Za-z0-9-]+/g, "-");
 
     return new NextResponse(Buffer.from(pdfBytes), {
       status: 200,
       headers: {
         "Content-Type": "application/pdf",
-        "Content-Disposition": `attachment; filename="${order.invoiceNumber}.pdf"`,
+        "Content-Disposition": `attachment; filename="${fileName}.pdf"`,
+        "Cache-Control": "private, no-store",
+        "X-Robots-Tag": "noindex",
       },
     });
-  } catch (error: any) {
-    return NextResponse.json(
-      { error: error?.message || "Failed to generate invoice" },
-      { status: 500 }
-    );
+  } catch (error) {
+    console.error("[invoice] Failed:", error);
+    return messagePage(500, "We couldn't create this invoice right now", "Please try again in a minute.", [
+      { href: "/track-your-order", label: "Track your order" },
+    ]);
   }
 }
