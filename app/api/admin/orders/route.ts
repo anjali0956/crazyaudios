@@ -15,7 +15,11 @@ async function requireAdmin() {
   return session;
 }
 
-export async function GET() {
+// Online orders still waiting for a payment confirmation this long after checkout
+// are worth a look ("Payment pending (unverified)" in the admin).
+const PENDING_PAYMENT_AFTER_MS = 15 * 60 * 1000;
+
+export async function GET(req: Request) {
   try {
     const session = await requireAdmin();
 
@@ -25,17 +29,29 @@ export async function GET() {
 
     await dbConnect();
 
+    // ?status=created: admin-only view of unconfirmed online orders. The
+    // default list (and everything customer-facing) stays paid + COD only.
+    if (new URL(req.url).searchParams.get("status") === "created") {
+      const pending = await Order.find({
+        status: "created",
+        createdAt: { $lte: new Date(Date.now() - PENDING_PAYMENT_AFTER_MS) },
+      })
+        .sort({ createdAt: -1 })
+        .limit(200)
+        .lean();
+
+      return NextResponse.json(pending);
+    }
+
     const orders = await Order.find({ status: { $in: CONFIRMED_ORDER_STATUSES } })
       .sort({ createdAt: -1 })
       .limit(500)
       .lean();
 
     return NextResponse.json(orders);
-  } catch (error: any) {
-    return NextResponse.json(
-      { error: error?.message || "Failed to load admin orders" },
-      { status: 500 }
-    );
+  } catch (error) {
+    console.error("[admin/orders] GET failed:", error);
+    return NextResponse.json({ error: "Failed to load orders" }, { status: 500 });
   }
 }
 
@@ -109,10 +125,8 @@ export async function PATCH(req: Request) {
     );
 
     return NextResponse.json({ success: true });
-  } catch (error: any) {
-    return NextResponse.json(
-      { error: error?.message || "Failed to update order tracking" },
-      { status: 500 }
-    );
+  } catch (error) {
+    console.error("[admin/orders] PATCH failed:", error);
+    return NextResponse.json({ error: "Failed to update order tracking" }, { status: 500 });
   }
 }

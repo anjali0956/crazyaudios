@@ -15,6 +15,9 @@ type TrackingEvent = {
 type TrackingOrder = {
   receipt: string;
   invoiceNumber: string;
+  // Signed link: opens the invoice without signing in.
+  invoiceUrl?: string;
+  paymentMethod?: "prepaid" | "cod";
   fulfillmentStatus: string;
   courierName: string;
   trackingNumber: string;
@@ -66,9 +69,12 @@ export default function TrackYourOrderClient({
         email: incomingEmail.trim(),
       });
       setOrder(res.data);
-    } catch (err: any) {
+    } catch (err) {
       setOrder(null);
-      setError(err?.response?.data?.error || "We could not fetch tracking details right now.");
+      setError(
+        (axios.isAxiosError(err) && err.response?.data?.error) ||
+          "We could not fetch tracking details right now."
+      );
     } finally {
       setLoading(false);
     }
@@ -204,9 +210,20 @@ export default function TrackYourOrderClient({
                     {order.shippingAddress.city}, {order.shippingAddress.state} - {order.shippingAddress.pincode}
                   </p>
                   <p>
-                    <span className="font-medium text-gray-900">Total Paid:</span> ₹{order.totalAmount}
+                    <span className="font-medium text-gray-900">
+                      {order.paymentMethod === "cod" ? "Pay on Delivery:" : "Total Paid:"}
+                    </span>{" "}
+                    ₹{order.totalAmount}
                   </p>
                 </div>
+                {order.invoiceUrl ? (
+                  <a
+                    href={order.invoiceUrl}
+                    className="mt-4 inline-flex items-center justify-center rounded-lg bg-black px-4 py-2 text-sm font-semibold text-white"
+                  >
+                    Download Invoice PDF
+                  </a>
+                ) : null}
               </section>
 
               <section className="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm">

@@ -6,14 +6,25 @@ import UploadAsset from "@/models/UploadAsset";
 
 export const runtime = "nodejs";
 
-const ALLOWED_TYPES = new Set([
-  "image/jpeg",
-  "image/png",
-  "image/webp",
-  "image/gif",
-  "image/svg+xml",
-]);
+// No SVG: uploads are served from our own origin, and an SVG can carry script.
+const ALLOWED_TYPES = new Set(["image/jpeg", "image/png", "image/webp", "image/gif"]);
 const MAX_FILE_SIZE_BYTES = 5 * 1024 * 1024;
+
+// The browser-supplied type is only a claim: check the file's first bytes too.
+function matchesImageSignature(type: string, bytes: Buffer) {
+  switch (type) {
+    case "image/jpeg":
+      return bytes.length > 3 && bytes[0] === 0xff && bytes[1] === 0xd8 && bytes[2] === 0xff;
+    case "image/png":
+      return bytes.subarray(0, 8).equals(Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]));
+    case "image/gif":
+      return bytes.subarray(0, 4).toString("latin1") === "GIF8";
+    case "image/webp":
+      return bytes.subarray(0, 4).toString("latin1") === "RIFF" && bytes.subarray(8, 12).toString("latin1") === "WEBP";
+    default:
+      return false;
+  }
+}
 
 export async function POST(req: Request) {
   try {
@@ -37,9 +48,16 @@ export async function POST(req: Request) {
     const uploadedFiles: string[] = [];
 
     for (const file of files) {
+      if (file.type === "image/svg+xml" || /\.svgz?$/i.test(file.name || "")) {
+        return NextResponse.json(
+          { error: "SVG images can't be uploaded. Please use JPG, PNG, WebP or GIF." },
+          { status: 400 }
+        );
+      }
+
       if (!ALLOWED_TYPES.has(file.type)) {
         return NextResponse.json(
-          { error: `Unsupported image type: ${file.type || "unknown"}` },
+          { error: `Unsupported image type: ${file.type || "unknown"}. Please use JPG, PNG, WebP or GIF.` },
           { status: 400 }
         );
       }
@@ -53,6 +71,13 @@ export async function POST(req: Request) {
 
       const arrayBuffer = await file.arrayBuffer();
       const buffer = Buffer.from(arrayBuffer);
+
+      if (!matchesImageSignature(file.type, buffer)) {
+        return NextResponse.json(
+          { error: `${file.name || "This file"} is not a valid ${file.type.replace("image/", "").toUpperCase()} image.` },
+          { status: 400 }
+        );
+      }
       const asset = await UploadAsset.create({
         fileName: file.name || "upload",
         contentType: file.type,
@@ -65,10 +90,8 @@ export async function POST(req: Request) {
     }
 
     return NextResponse.json({ files: uploadedFiles });
-  } catch (error: any) {
-    return NextResponse.json(
-      { error: error?.message || "Failed to upload image" },
-      { status: 500 }
-    );
+  } catch (error) {
+    console.error("[upload-image] Failed:", error);
+    return NextResponse.json({ error: "Failed to upload image" }, { status: 500 });
   }
 }

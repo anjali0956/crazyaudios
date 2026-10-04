@@ -1,14 +1,20 @@
-import crypto from "crypto";
 import { NextResponse } from "next/server";
+import mongoose from "mongoose";
 import dbConnect from "@/lib/mongodb";
 import Order from "@/models/Order";
-import Product from "@/models/Product";
-import { sendMetaPurchaseEvent } from "@/lib/meta-capi";
+import { markOrderPaid } from "@/lib/payments";
+import { isValidCheckoutSignature } from "@/lib/razorpay";
 
+// Called by the checkout page after Razorpay Checkout reports success. A bad
+// signature changes nothing: anyone can call this endpoint with any order id.
 export async function POST(req: Request) {
   try {
-    await dbConnect();
-    const body = await req.json();
+    let body: Record<string, unknown>;
+    try {
+      body = await req.json();
+    } catch {
+      return NextResponse.json({ error: "Invalid request" }, { status: 400 });
+    }
 
     const internalOrderId = String(body?.internal_order_id || "").trim();
     const razorpayOrderId = String(body?.razorpay_order_id || "").trim();
@@ -20,81 +26,77 @@ export async function POST(req: Request) {
     }
 
     const keySecret = process.env.RAZORPAY_KEY_SECRET;
-
     if (!keySecret) {
-      return NextResponse.json({ error: "Razorpay secret is not configured" }, { status: 500 });
+      console.error("[verify-payment] RAZORPAY_KEY_SECRET is not set; cannot verify payments.");
+      return NextResponse.json(
+        { error: "We couldn't confirm your payment right now. If money was deducted, your order will be confirmed automatically." },
+        { status: 503 }
+      );
     }
 
-    const generatedSignature = crypto
-      .createHmac("sha256", keySecret)
-      .update(`${razorpayOrderId}|${razorpayPaymentId}`)
-      .digest("hex");
-
-    if (generatedSignature !== razorpaySignature) {
-      await Order.findByIdAndUpdate(internalOrderId, {
-        status: "failed",
-        razorpayPaymentId,
-        razorpaySignature,
-      });
-      return NextResponse.json({ success: false, error: "Invalid payment signature" }, { status: 400 });
+    if (!isValidCheckoutSignature(razorpayOrderId, razorpayPaymentId, razorpaySignature, keySecret)) {
+      console.warn(`[verify-payment] Signature mismatch for order ${internalOrderId}; nothing changed.`);
+      return NextResponse.json(
+        { success: false, error: "Payment could not be verified" },
+        { status: 400 }
+      );
     }
 
-    const order = await Order.findById(internalOrderId);
+    if (!mongoose.isValidObjectId(internalOrderId)) {
+      return NextResponse.json({ error: "Order not found" }, { status: 404 });
+    }
+
+    await dbConnect();
+    const order = await Order.findById(internalOrderId)
+      .select("razorpayOrderId")
+      .lean<{ razorpayOrderId?: string }>();
 
     if (!order) {
       return NextResponse.json({ error: "Order not found" }, { status: 404 });
     }
 
     if (order.razorpayOrderId !== razorpayOrderId) {
-      return NextResponse.json({ error: "Order mismatch" }, { status: 400 });
+      console.warn(`[verify-payment] Order ${internalOrderId} does not belong to ${razorpayOrderId}; nothing changed.`);
+      return NextResponse.json(
+        { success: false, error: "Payment could not be verified" },
+        { status: 400 }
+      );
     }
 
-    const wasAlreadyPaid = order.status === "paid";
-
-    if (!wasAlreadyPaid) {
-      for (const item of order.items) {
-        const updatedProduct = await Product.findOneAndUpdate(
-          { _id: item.productId, stock: { $gte: item.quantity } },
-          { $inc: { stock: -item.quantity } },
-          { new: true }
-        );
-
-        if (!updatedProduct) {
-          return NextResponse.json({ error: `Insufficient stock for ${item.name}` }, { status: 400 });
-        }
-      }
-    }
-
-    order.status = "paid";
-    order.fulfillmentStatus = order.fulfillmentStatus || "processing";
-    order.razorpayPaymentId = razorpayPaymentId;
-    order.razorpaySignature = razorpaySignature;
-    if (!order.trackingTimeline?.length) {
-      order.trackingTimeline.push({
-        status: "processing",
-        title: "Order Confirmed",
-        description: "Payment verified successfully. We are preparing your shipment.",
-        location: "CrazyAudios Warehouse",
-        createdAt: new Date(),
-      } as any);
-    }
-    await order.save();
-
-    // Report the sale to Meta once, on the transition to paid (a retried
-    // verification must not count it twice).
-    if (!wasAlreadyPaid && (await sendMetaPurchaseEvent(order, req))) {
-      await Order.updateOne({ _id: order._id }, { metaPurchaseSentAt: new Date() });
-    }
-
-    return NextResponse.json({
-      success: true,
-      orderId: String(order._id),
-      receipt: order.receipt,
-      invoiceNumber: order.invoiceNumber,
+    const result = await markOrderPaid({
+      orderId: internalOrderId,
+      razorpayOrderId,
+      razorpayPaymentId,
+      signature: razorpaySignature,
+      source: "verify-payment",
+      request: req,
     });
-  } catch (error: any) {
+
+    if (result.outcome === "paid" || result.outcome === "already_paid") {
+      return NextResponse.json({
+        success: true,
+        orderId: result.order.id,
+        receipt: result.order.receipt,
+        invoiceNumber: result.order.invoiceNumber,
+        status: result.order.status,
+      });
+    }
+
+    if (result.outcome === "not_payable") {
+      console.warn(
+        `[verify-payment] Order ${internalOrderId} is "${result.order.status}", not payable; payment ${razorpayPaymentId} needs a manual check.`
+      );
+      return NextResponse.json(
+        { success: false, error: "This order can no longer be paid. If money was deducted, please contact us." },
+        { status: 409 }
+      );
+    }
+
+    return NextResponse.json({ error: "Order not found" }, { status: 404 });
+  } catch (error) {
+    console.error("[verify-payment] Failed:", error);
     return NextResponse.json(
-      { error: error?.message || "Failed to verify payment" },
+      { error: "We couldn't confirm your payment right now. If money was deducted, your order will be confirmed automatically." },
       { status: 500 }
     );
   }
