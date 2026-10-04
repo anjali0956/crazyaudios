@@ -31,11 +31,16 @@ const archivo = Archivo({
   display: "swap",
 });
 
+// All three weights are in use (400: spec values, counts, pincode field; 500:
+// kickers, chips; 600: badges, price chips). Not preloaded: these small labels
+// swap in from the metric-adjusted fallback (next/font's adjustFontFallback)
+// instead of competing with the CSS, Archivo and the LCP for bandwidth.
 const plexMono = IBM_Plex_Mono({
   subsets: ["latin"],
   weight: ["400", "500", "600"],
   variable: "--font-plex-mono",
   display: "swap",
+  preload: false,
 });
 
 // "₹" lives in Archivo's 86 KB latin-ext file; this 2 KB subset carries only
