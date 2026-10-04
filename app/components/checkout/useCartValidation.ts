@@ -119,6 +119,10 @@ function applyLiveProducts(products: LiveProduct[], reconcile: (live: ReconcileP
   return { notices, removed };
 }
 
+/**
+ * One short line for the toast (the toast shows a single line; the details
+ * sit next to the items): "TIP35 is out of stock" or "3 changes, see the notes below".
+ */
 function changeSummary(
   notices: Record<string, LineNotice>,
   removed: RemovedLine[],
@@ -126,15 +130,15 @@ function changeSummary(
 ) {
   const parts: string[] = [];
   for (const line of removed) {
-    parts.push(`${line.name} ${line.reason === "out_of_stock" ? "is out of stock" : "is no longer available"} and was removed`);
+    parts.push(`${line.name} ${line.reason === "out_of_stock" ? "is out of stock" : "is no longer sold"}`);
   }
   for (const [id, notice] of Object.entries(notices)) {
-    if (notice.price) parts.push(`${nameOf(id)}: price changed`);
-    if (notice.quantity) parts.push(`${nameOf(id)}: quantity lowered to what's in stock`);
+    if (notice.price) parts.push(`${nameOf(id)}: new price`);
+    if (notice.quantity) parts.push(`${nameOf(id)}: fewer in stock`);
   }
   if (!parts.length) return "";
-  const shown = parts.slice(0, 2).join(". ");
-  return parts.length > 2 ? `${shown}, and ${parts.length - 2} more.` : `${shown}.`;
+  if (parts.length === 1 && parts[0].length <= 44) return parts[0];
+  return parts.length === 1 ? "1 change, see the note below" : `${parts.length} changes, see the notes below`;
 }
 
 /**

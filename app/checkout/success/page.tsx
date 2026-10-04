@@ -148,10 +148,10 @@ export default async function CheckoutSuccessPage({
   let message: ReactNode;
   if (isConfirmed) {
     kicker = isCod ? "Order confirmed · Cash on Delivery" : "Payment received · Order confirmed";
-    heading = name ? `Thank you, ${name}. Your order is confirmed.` : "Thank you. Your order is confirmed.";
+    heading = name ? `Thank you, ${name}.` : "Thank you for your order.";
     message = isCod
-      ? "We'll pack it and send it on its way. You pay the courier when it arrives."
-      : `We've received your payment of ${amount}. We'll pack your order and send it on its way.`;
+      ? "Your order is confirmed. We'll pack it and send it on its way, and you pay the courier when it arrives."
+      : `Your order is confirmed and we've received your payment of ${amount}. We'll pack it and send it on its way.`;
   } else if (isPending) {
     kicker = "Online payment";
     heading = "Payment received, confirming…";
@@ -170,11 +170,11 @@ export default async function CheckoutSuccessPage({
       <OrderPageEffects orderId={orderId} clearCart={isConfirmed || isPending} autoRefresh={isPending} />
 
       <div className="mx-auto max-w-[720px]">
-        <header className="flex items-start gap-3 sm:gap-4">
+        <header className="flex flex-col items-start gap-3 sm:flex-row sm:gap-4">
           <span
             aria-hidden="true"
             className={cx(
-              "grid h-11 w-11 shrink-0 place-items-center rounded-full sm:h-12 sm:w-12",
+              "grid h-11 w-11 shrink-0 place-items-center rounded-full sm:mt-0.5 sm:h-12 sm:w-12",
               isConfirmed ? "bg-ok-soft text-ok" : isPending ? "bg-signal-soft text-signal-ink" : "bg-danger-soft text-danger"
             )}
           >

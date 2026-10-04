@@ -172,6 +172,7 @@ export function CheckoutView({ paymentReturn = null }: { paymentReturn?: Payment
 
   const [form, setForm] = useState<CheckoutFormState>(EMPTY_FORM);
   const [errors, setErrors] = useState<FieldErrors>({});
+  const [serverErrors, setServerErrors] = useState<FieldErrors>({});
   const [method, setMethod] = useState<PaymentMethod>("prepaid");
   const [submitting, setSubmitting] = useState(false);
   const [placed, setPlaced] = useState(false);
@@ -307,17 +308,31 @@ export function CheckoutView({ paymentReturn = null }: { paymentReturn?: Payment
       }
     }
     setForm(next);
-    if (errors[key]) {
-      const message = validateField(key, next);
-      setErrors((current) => ({ ...current, [key]: message }));
+    // A server message is about the old value; editing the field retires it.
+    if (serverErrors[key]) {
+      setServerErrors((current) => {
+        const rest = { ...current };
+        delete rest[key];
+        return rest;
+      });
     }
   };
 
+  // Flag a field on blur (only once something was typed), so tabbing through
+  // empty fields stays quiet until the customer tries to pay.
   const blurField = (key: FieldKey) => {
     if (!String(valueOf(key, form)).trim() && !errors[key]) return;
     const message = validateField(key, form);
     setErrors((current) => (current[key] === message ? current : { ...current, [key]: message }));
   };
+
+  /**
+   * The message shown under a field: the server's, until the field is edited;
+   * otherwise the live client rule for a flagged field, so it updates while
+   * typing and disappears as soon as the value is valid, however it got there
+   * (typing, PIN autofill, saved details).
+   */
+  const shownError = (key: FieldKey) => serverErrors[key] ?? (errors[key] ? validateField(key, form) : undefined);
 
   /** Props shared by every text field: value, change, blur, id, error. */
   const bind = (key: FieldKey) => ({
@@ -326,7 +341,7 @@ export function CheckoutView({ paymentReturn = null }: { paymentReturn?: Payment
     value: valueOf(key, form),
     onChange: (event: { target: { value: string } }) => setField(key, event.target.value),
     onBlur: () => blurField(key),
-    error: errors[key],
+    error: shownError(key),
   });
 
   const selectMethod = (value: PaymentMethod) => {
@@ -345,7 +360,7 @@ export function CheckoutView({ paymentReturn = null }: { paymentReturn?: Payment
   const handleOrderError = (result: JsonResult) => {
     const message = typeof result.data?.error === "string" ? result.data.error : "";
     if (!result.status) {
-      toast.error("No internet connection?", { description: "We couldn't reach our server. Check your connection and try again." });
+      toast.error("No internet connection?", { description: "Check your connection and try again." });
       showNotice({ kind: "error", title: "We couldn't reach our server", text: "Check your internet connection and try again. Nothing was charged." });
       return;
     }
@@ -353,7 +368,7 @@ export function CheckoutView({ paymentReturn = null }: { paymentReturn?: Payment
       const mapped = mapServerFieldErrors(result.data.fieldErrors, form.billingSame);
       const first = firstErrorKey(mapped);
       if (first) {
-        setErrors((current) => ({ ...current, ...mapped }));
+        setServerErrors(mapped);
         focusField(first);
         toast.error("Please check the highlighted details");
         return;
@@ -405,18 +420,26 @@ export function CheckoutView({ paymentReturn = null }: { paymentReturn?: Payment
 
     // 1. Same rules as the server, field by field.
     const fieldErrors = validateForm(form);
-    const { shippingAddress, billingAddress } = buildAddresses(form);
-    if (!firstErrorKey(fieldErrors)) {
-      const parity = validateCheckoutAddresses(shippingAddress, form.billingSame ? undefined : billingAddress);
-      if (!parity.ok) Object.assign(fieldErrors, mapServerFieldErrors(parity.fieldErrors, form.billingSame));
-    }
     const first = firstErrorKey(fieldErrors);
     if (first) {
       setErrors(fieldErrors);
       focusField(first);
       return;
     }
+    const { shippingAddress, billingAddress } = buildAddresses(form);
+    // Belt and braces: the server's own validator, run here on the exact payload.
+    const parity = validateCheckoutAddresses(shippingAddress, form.billingSame ? undefined : billingAddress);
+    if (!parity.ok) {
+      const mapped = mapServerFieldErrors(parity.fieldErrors, form.billingSame);
+      const firstMapped = firstErrorKey(mapped);
+      if (firstMapped) {
+        setServerErrors(mapped);
+        focusField(firstMapped);
+        return;
+      }
+    }
     setErrors({});
+    setServerErrors({});
 
     // 2. A delivery quote for this PIN code and payment method.
     if (active.status === "error") {
@@ -520,9 +543,7 @@ export function CheckoutView({ paymentReturn = null }: { paymentReturn?: Payment
         ondismiss: () => {
           setSubmitting(false);
           toast.info("Payment not completed", {
-            description: codPossible
-              ? "Your order isn't placed yet. Try again, or choose Cash on Delivery."
-              : "Your order isn't placed yet. You can try again.",
+            description: codPossible ? "Try again, or choose Cash on Delivery." : "Your order isn't placed yet.",
           });
         },
       },
@@ -559,7 +580,7 @@ export function CheckoutView({ paymentReturn = null }: { paymentReturn?: Payment
   const lookup = deliveryPin ? pinLookups[deliveryPin] : undefined;
   const pinUnserviceable =
     quotes.prepaid.status === "error" && quotes.prepaid.kind === "unserviceable" ? quotes.prepaid.message : undefined;
-  const pinError = errors["delivery.pincode"] ?? pinUnserviceable;
+  const pinError = shownError("delivery.pincode") ?? pinUnserviceable;
   const pinHint = pinError ? undefined : (
     <PinHint lookup={lookup} promise={activeQuote ? deliveryPromise(activeQuote) : ""} />
   );
@@ -705,11 +726,13 @@ export function CheckoutView({ paymentReturn = null }: { paymentReturn?: Payment
                 const same = event.target.checked;
                 setForm((current) => ({ ...current, billingSame: same }));
                 if (same) {
-                  setErrors((current) => {
+                  const withoutBilling = (current: FieldErrors) => {
                     const next = { ...current };
                     for (const key of Object.keys(next) as FieldKey[]) if (key.startsWith("billing.")) delete next[key];
                     return next;
-                  });
+                  };
+                  setErrors(withoutBilling);
+                  setServerErrors(withoutBilling);
                 }
               }}
             />
@@ -1016,19 +1039,59 @@ function EmptyCheckout({ removed }: { removed: RemovedLine[] }) {
   );
 }
 
+function SkeletonField({ className }: { className?: string }) {
+  return (
+    <div className={cx("flex flex-col", className)}>
+      <Skeleton className="mb-1.5 mt-[3px] h-3.5 w-28" />
+      <div className="h-12 rounded-chip border border-line-strong/60 bg-card" />
+    </div>
+  );
+}
+
+/**
+ * Same sections, spacing and field heights as the real form, so nothing on
+ * screen moves when the cart has loaded and the form replaces it (CLS).
+ */
 function CheckoutSkeleton() {
   return (
-    <div aria-busy="true" aria-label="Loading checkout" className="lg:grid lg:grid-cols-[minmax(0,1fr)_400px] lg:gap-12">
-      <div className="max-w-[640px] space-y-4 pt-5">
-        <div className="-mx-4 h-12 border-b border-line bg-card sm:-mx-6 lg:hidden" />
-        {[0, 1, 2, 3].map((row) => (
-          <div key={row} className="space-y-2">
-            <Skeleton className="h-3.5 w-28" />
-            <div className="h-12 rounded-chip border border-line bg-card" />
-          </div>
-        ))}
+    <div aria-busy="true" aria-label="Loading checkout">
+      <div className="-mx-4 flex min-h-12 items-center justify-between border-b border-line bg-card px-4 sm:-mx-6 sm:px-6 lg:hidden">
+        <span className="text-[14px] font-medium leading-5 text-ink">Order summary</span>
+        <Skeleton className="h-5 w-16" />
       </div>
-      <div className="hidden h-[420px] rounded-card border border-line bg-card lg:block" />
+      <div className="lg:flex lg:items-end lg:justify-between lg:pb-6">
+        <h1 className="type-h1 sr-only text-ink lg:not-sr-only">Checkout</h1>
+        <p className="hidden items-center gap-1.5 text-[14px] text-muted lg:flex">
+          <IconLock size={16} />
+          Secure checkout
+        </p>
+      </div>
+      <div className="lg:grid lg:grid-cols-[minmax(0,1fr)_400px] lg:items-start lg:gap-12">
+        <div className="min-w-0 max-w-[640px]">
+          <FormSection step={1} id="checkout-contact-loading" title="Contact">
+            <SkeletonField />
+            <SkeletonField />
+          </FormSection>
+          <FormSection step={2} id="checkout-delivery-loading" title="Delivery address">
+            <SkeletonField />
+            <SkeletonField />
+            <SkeletonField />
+            <SkeletonField />
+            <SkeletonField />
+            <div className="grid grid-cols-2 gap-3">
+              <SkeletonField />
+              <SkeletonField />
+            </div>
+            <div className="h-[70px] rounded-card border border-line bg-card" />
+            <div className="h-11" />
+          </FormSection>
+          <FormSection step={3} id="checkout-payment-loading" title="Payment">
+            <div className="h-[82px] rounded-card border border-line-strong/60 bg-card" />
+            <div className="h-[62px] rounded-card border border-line-strong/60 bg-card" />
+          </FormSection>
+        </div>
+        <div className="hidden h-[460px] rounded-card border border-line bg-card lg:block" />
+      </div>
     </div>
   );
 }
