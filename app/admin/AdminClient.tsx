@@ -65,6 +65,14 @@ type Order = {
   customerPhone: string;
   totalAmount: number;
   status: string;
+  paymentMethod?: "prepaid" | "cod";
+  attribution?: {
+    utmSource?: string;
+    utmMedium?: string;
+    utmCampaign?: string;
+    utmContent?: string;
+    fbclid?: string;
+  } | null;
   createdAt?: string;
   items: OrderItem[];
   shippingAddress: Address;
@@ -990,9 +998,15 @@ export default function AdminClient() {
                           {formatCurrency(order.totalAmount)}
                         </td>
                         <td className="px-4 py-3">
-                          <span className="rounded-full bg-green-100 px-2.5 py-1 text-xs font-semibold text-green-700">
-                            {String(order.status || "paid").toUpperCase()}
-                          </span>
+                          {order.paymentMethod === "cod" || order.status === "cod" ? (
+                            <span className="rounded-full bg-amber-100 px-2.5 py-1 text-xs font-semibold text-amber-800">
+                              COD – COLLECT
+                            </span>
+                          ) : (
+                            <span className="rounded-full bg-green-100 px-2.5 py-1 text-xs font-semibold text-green-700">
+                              {String(order.status || "paid").toUpperCase()}
+                            </span>
+                          )}
                         </td>
                         <td className="px-4 py-3">
                           <span
@@ -1062,6 +1076,26 @@ export default function AdminClient() {
                         {selectedOrder.createdAt ? (
                           <p className="mt-1 text-xs text-gray-500">
                             Ordered on {new Date(selectedOrder.createdAt).toLocaleString("en-IN")}
+                          </p>
+                        ) : null}
+                        {selectedOrder.paymentMethod === "cod" || selectedOrder.status === "cod" ? (
+                          <p className="mt-2 rounded-lg bg-amber-50 px-3 py-2 text-sm font-semibold text-amber-900">
+                            Cash on Delivery – collect {formatCurrency(selectedOrder.totalAmount)}. Book
+                            this shipment as COD with the courier.
+                          </p>
+                        ) : null}
+                        {selectedOrder.attribution?.utmSource || selectedOrder.attribution?.fbclid ? (
+                          <p className="mt-1 text-xs text-gray-500">
+                            Source:{" "}
+                            {[
+                              selectedOrder.attribution.utmSource ||
+                                (selectedOrder.attribution.fbclid ? "facebook/instagram ad" : ""),
+                              selectedOrder.attribution.utmMedium,
+                              selectedOrder.attribution.utmCampaign,
+                              selectedOrder.attribution.utmContent,
+                            ]
+                              .filter(Boolean)
+                              .join(" / ")}
                           </p>
                         ) : null}
                       </div>

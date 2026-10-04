@@ -1,15 +1,22 @@
+import { qualifiesForFreeShipping } from "@/lib/shipping-policy";
+
 export type ShippingRateRequest = {
   pickupPostcode: string;
   deliveryPostcode: string;
   weightKg: number;
   cod: boolean;
+  // Product subtotal (incl. GST), used to decide free shipping.
+  subtotal: number;
 };
 
 export type CourierRate = {
   courier_company_id: number;
   name: string;
+  // What the customer is charged for this courier after free shipping.
   rate: number;
   base_rate?: number;
+  // What the customer would be charged without free shipping.
+  full_rate?: number;
   freight_charge: number;
   cod_charges: number;
   other_charges: number;
@@ -32,6 +39,10 @@ export type ShippingQuote = {
   courierCompanyId: number;
   shippingFee: number;
   baseShippingFee: number;
+  fullShippingFee: number;
+  freeShippingApplied: boolean;
+  cod: boolean;
+  codCharges: number;
   shippingLabel: string;
   courierName: string;
   estimatedDeliveryText: string;
@@ -55,6 +66,8 @@ function roundCurrency(value: number) {
 
 function adjustCourierPrice(value: number) {
   const rawRate = Number(value || 0);
+  // Nothing to charge (free shipping on the cheapest courier): no handling uplift either.
+  if (rawRate <= 0) return 0;
   const withBuffer = rawRate + 10;
   return Math.ceil(withBuffer / 5) * 5;
 }
@@ -100,18 +113,38 @@ function formatShippingLabel(courier: CourierRate) {
   return parts.join(" - ");
 }
 
-function normalizeCourierRate(courier: CourierRate) {
-  const baseRate = Number(courier.rate || 0);
-  return {
-    ...courier,
-    base_rate: roundCurrency(baseRate),
-    rate: adjustCourierPrice(baseRate),
-    freight_charge: Number(courier.freight_charge || 0),
-    cod_charges: Number(courier.cod_charges || 0),
-    other_charges: Number(courier.other_charges || 0),
-    rto_charges: Number(courier.rto_charges || 0),
-    rating: Number(courier.rating || 0),
-  };
+// With COD the rate API returns rate = freight + cod_charges. Free shipping
+// covers the freight of the cheapest courier only: a faster courier costs the
+// difference, and COD orders still pay the courier's COD charge.
+function normalizeCourierRates(
+  couriers: CourierRate[],
+  { cod, subtotal }: { cod: boolean; subtotal: number }
+): CourierRate[] {
+  const eligible = cod ? couriers.filter((courier) => courier.cod_available !== false) : couriers;
+  const freeShipping = qualifiesForFreeShipping(subtotal);
+  const codChargesOf = (courier: CourierRate) => (cod ? Number(courier.cod_charges || 0) : 0);
+  const freightOf = (courier: CourierRate) =>
+    Math.max(0, Number(courier.rate || 0) - codChargesOf(courier));
+  const cheapestFreight = eligible.length ? Math.min(...eligible.map(freightOf)) : 0;
+
+  return eligible.map((courier) => {
+    const baseRate = Number(courier.rate || 0);
+    const customerFreight = freeShipping
+      ? Math.max(0, freightOf(courier) - cheapestFreight)
+      : freightOf(courier);
+
+    return {
+      ...courier,
+      base_rate: roundCurrency(baseRate),
+      full_rate: adjustCourierPrice(baseRate),
+      rate: adjustCourierPrice(customerFreight + codChargesOf(courier)),
+      freight_charge: Number(courier.freight_charge || 0),
+      cod_charges: Number(courier.cod_charges || 0),
+      other_charges: Number(courier.other_charges || 0),
+      rto_charges: Number(courier.rto_charges || 0),
+      rating: Number(courier.rating || 0),
+    };
+  });
 }
 
 export function selectCourierRate(
@@ -167,8 +200,15 @@ export async function fetchShippingQuote(
   }
 
   const couriers = Array.isArray(payload?.couriers)
-    ? (payload.couriers as CourierRate[]).map(normalizeCourierRate)
+    ? normalizeCourierRates(payload.couriers as CourierRate[], {
+        cod: request.cod,
+        subtotal: request.subtotal,
+      })
     : [];
+
+  if (request.cod && !couriers.length) {
+    throw new Error("Cash on Delivery is not available for this pincode");
+  }
 
   const bestCourier = selectCourierRate(couriers, selectedCourierCompanyId);
 
@@ -176,6 +216,10 @@ export async function fetchShippingQuote(
     courierCompanyId: bestCourier.courier_company_id,
     shippingFee: bestCourier.rate,
     baseShippingFee: bestCourier.base_rate || bestCourier.rate,
+    fullShippingFee: bestCourier.full_rate ?? bestCourier.rate,
+    freeShippingApplied: qualifiesForFreeShipping(request.subtotal),
+    cod: request.cod,
+    codCharges: request.cod ? Math.ceil(Number(bestCourier.cod_charges || 0)) : 0,
     shippingLabel: formatShippingLabel(bestCourier),
     courierName: bestCourier.name,
     estimatedDeliveryText:

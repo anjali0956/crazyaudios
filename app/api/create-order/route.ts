@@ -14,12 +14,21 @@ import {
   validateAddress,
 } from "@/lib/order-utils";
 import { estimateShipmentWeightKg, fetchShippingQuote, SHIPPING_PICKUP_PINCODE } from "@/lib/shipping-rates";
+import { COD_MAX_ORDER_VALUE, isCodAllowed, normalizePaymentMethod } from "@/lib/shipping-policy";
+import { sanitizeAttribution } from "@/lib/attribution";
+import { sendMetaPurchaseEvent } from "@/lib/meta-capi";
 import Product from "@/models/Product";
 
 type IncomingCartItem = {
   _id?: string;
   productId?: string;
   quantity?: number;
+};
+
+type StockItem = {
+  productId: unknown;
+  name: string;
+  quantity: number;
 };
 
 function getRazorpayClient() {
@@ -46,6 +55,35 @@ function getPublicRazorpayKey() {
   return keyId;
 }
 
+async function releaseStock(items: StockItem[]) {
+  for (const item of items) {
+    await Product.updateOne({ _id: item.productId }, { $inc: { stock: item.quantity } });
+  }
+}
+
+// COD orders are confirmed immediately, so stock is taken now (prepaid orders
+// take it in verify-payment). All-or-nothing: a shortfall returns what was taken.
+async function reserveStock(items: StockItem[]) {
+  const reserved: StockItem[] = [];
+
+  for (const item of items) {
+    const updated = await Product.findOneAndUpdate(
+      { _id: item.productId, stock: { $gte: item.quantity } },
+      { $inc: { stock: -item.quantity } },
+      { new: true }
+    );
+
+    if (!updated) {
+      await releaseStock(reserved);
+      return `Insufficient stock for ${item.name}`;
+    }
+
+    reserved.push(item);
+  }
+
+  return null;
+}
+
 export async function POST(req: Request) {
   try {
     await dbConnect();
@@ -56,6 +94,8 @@ export async function POST(req: Request) {
     const shippingAddress = body?.shippingAddress;
     const billingAddress = body?.billingAddress;
     const selectedCourierCompanyId = Number(body?.selectedCourierCompanyId || 0) || undefined;
+    const paymentMethod = normalizePaymentMethod(body?.paymentMethod);
+    const attribution = sanitizeAttribution(body?.attribution);
 
     if (!cartItems.length) {
       return NextResponse.json({ error: "Cart is empty" }, { status: 400 });
@@ -118,6 +158,14 @@ export async function POST(req: Request) {
     });
 
     const subtotal = items.reduce((sum, item) => sum + item.lineTotal, 0);
+
+    if (paymentMethod === "cod" && !isCodAllowed(subtotal)) {
+      return NextResponse.json(
+        { error: `Cash on Delivery is available on orders up to Rs ${COD_MAX_ORDER_VALUE}` },
+        { status: 400 }
+      );
+    }
+
     const estimatedWeightKg = estimateShipmentWeightKg(
       normalizedItems.map((item) => ({
         quantity: item.quantity,
@@ -128,7 +176,8 @@ export async function POST(req: Request) {
       pickupPostcode: SHIPPING_PICKUP_PINCODE,
       deliveryPostcode: String(shippingAddress.pincode || "").trim(),
       weightKg: estimatedWeightKg,
-      cod: false,
+      cod: paymentMethod === "cod",
+      subtotal,
     }, selectedCourierCompanyId);
     const totals = calculateTotals(
       subtotal,
@@ -148,15 +197,7 @@ export async function POST(req: Request) {
       );
     }
 
-    const razorpay = getRazorpayClient();
-
-    const razorpayOrder = await razorpay.orders.create({
-      amount: amountInPaise,
-      currency: "INR",
-      receipt,
-    });
-
-    const savedOrder = await Order.create({
+    const orderFields = {
       receipt,
       invoiceNumber,
       userEmail: session?.user?.email || shippingAddress.email,
@@ -177,9 +218,66 @@ export async function POST(req: Request) {
       shippingTaxAmount: totals.shippingTaxAmount,
       totalAmount: totals.totalAmount,
       currency: "INR",
-      status: "created",
       courierName: shippingQuote.courierName,
       estimatedDelivery: shippingQuote.estimatedDeliveryDate,
+      attribution,
+    };
+
+    if (paymentMethod === "cod") {
+      const stockError = await reserveStock(items);
+      if (stockError) {
+        return NextResponse.json({ error: stockError }, { status: 409 });
+      }
+
+      let codOrder;
+      try {
+        codOrder = await Order.create({
+          ...orderFields,
+          paymentMethod: "cod",
+          status: "cod",
+          razorpayOrderId: `cod_${receipt}`,
+          trackingTimeline: [
+            {
+              status: "processing",
+              title: "Order Confirmed",
+              description: "Cash on Delivery order confirmed. We are preparing your shipment.",
+              location: "CrazyAudios Warehouse",
+              createdAt: new Date(),
+            },
+          ],
+        });
+      } catch (createError) {
+        await releaseStock(items);
+        throw createError;
+      }
+
+      if (await sendMetaPurchaseEvent(codOrder, req)) {
+        await Order.updateOne({ _id: codOrder._id }, { metaPurchaseSentAt: new Date() });
+      }
+
+      return NextResponse.json({
+        success: true,
+        paymentMethod: "cod",
+        orderId: String(codOrder._id),
+        receipt: codOrder.receipt,
+        invoiceNumber: codOrder.invoiceNumber,
+        totals,
+        shippingQuote,
+      });
+    }
+
+    const razorpay = getRazorpayClient();
+
+    const razorpayOrder = await razorpay.orders.create({
+      amount: amountInPaise,
+      currency: "INR",
+      receipt,
+    });
+
+    const savedOrder = await Order.create({
+      ...orderFields,
+      paymentMethod: "prepaid",
+      status: "created",
       razorpayOrderId: razorpayOrder.id,
     });
 
@@ -197,7 +295,7 @@ export async function POST(req: Request) {
     const message = error?.error?.description || error?.message || "Failed to create Razorpay order";
     const status = /auth|key|credential/i.test(message)
       ? 401
-      : /shipping weight is not configured/i.test(message)
+      : /shipping weight is not configured|Cash on Delivery is not available/i.test(message)
         ? 400
         : 500;
 

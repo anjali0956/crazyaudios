@@ -1,4 +1,10 @@
 import InfoPageShell from "@/app/components/InfoPageShell";
+import {
+  COD_ENABLED,
+  COD_MAX_ORDER_VALUE,
+  FREE_SHIPPING_THRESHOLD,
+  formatRupees,
+} from "@/lib/shipping-policy";
 
 export default function ShippingRefundPage() {
   return (
@@ -13,6 +19,28 @@ export default function ShippingRefundPage() {
           may vary depending on stock verification, courier availability, and delivery location.
         </p>
       </section>
+
+      <section>
+        <h2 className="text-xl font-semibold text-gray-900">Shipping Charges</h2>
+        <p className="mt-2">
+          Shipping is charged at the live courier rate for your pincode, shown at checkout before
+          you pay.
+          {FREE_SHIPPING_THRESHOLD > 0
+            ? ` Orders with a products total of ${formatRupees(FREE_SHIPPING_THRESHOLD)} or more (incl. GST) ship free with our standard courier. If you pick a faster courier, you pay only the difference.`
+            : ""}
+        </p>
+      </section>
+
+      {COD_ENABLED ? (
+        <section>
+          <h2 className="text-xl font-semibold text-gray-900">Cash on Delivery</h2>
+          <p className="mt-2">
+            Cash on Delivery is available on orders up to {formatRupees(COD_MAX_ORDER_VALUE)}. The
+            courier&apos;s COD charge is added to the shipping fee and shown at checkout. Please pay
+            the delivery agent in cash when your parcel arrives.
+          </p>
+        </section>
+      ) : null}
 
       <section>
         <h2 className="text-xl font-semibold text-gray-900">Packaging and Handling</h2>

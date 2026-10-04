@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import dbConnect from "@/lib/mongodb";
 import Order from "@/models/Order";
+import { CONFIRMED_ORDER_STATUSES } from "@/lib/order-utils";
 
 export async function POST(req: Request) {
   try {
@@ -20,12 +21,12 @@ export async function POST(req: Request) {
     const order = await Order.findOne({
       receipt,
       customerEmail: email,
-      status: "paid",
+      status: { $in: CONFIRMED_ORDER_STATUSES },
     }).lean();
 
     if (!order) {
       return NextResponse.json(
-        { error: "We could not find a paid order matching those details." },
+        { error: "We could not find an order matching those details." },
         { status: 404 }
       );
     }

@@ -2,12 +2,7 @@
 
 import { usePathname } from "next/navigation";
 import { useEffect, useRef } from "react";
-
-declare global {
-  interface Window {
-    fbq?: (event: string, name: string) => void;
-  }
-}
+import "@/lib/meta-pixel";
 
 export default function MetaPixelPageView() {
   const pathname = usePathname();

@@ -3,6 +3,11 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
+import {
+  FREE_SHIPPING_THRESHOLD,
+  amountLeftForFreeShipping,
+  formatRupees,
+} from "@/lib/shipping-policy";
 
 type CartItem = {
   _id: string;
@@ -219,6 +224,13 @@ export default function CartPage() {
             <span className="font-semibold text-gray-600">Total</span>
             <span className="text-2xl font-bold text-gray-800">Rs {total.toLocaleString("en-IN")}</span>
           </div>
+          {FREE_SHIPPING_THRESHOLD > 0 && cart.length > 0 ? (
+            <p className="mt-3 text-sm font-medium text-green-700">
+              {amountLeftForFreeShipping(total) > 0
+                ? `Add ${formatRupees(amountLeftForFreeShipping(total))} more to get free shipping`
+                : "Free shipping applies to this order"}
+            </p>
+          ) : null}
         </section>
       </div>
     </main>

@@ -3,6 +3,7 @@ import { getServerSession } from "next-auth";
 import dbConnect from "@/lib/mongodb";
 import Order from "@/models/Order";
 import { authOptions } from "@/app/api/auth/[...nextauth]/route";
+import { CONFIRMED_ORDER_STATUSES } from "@/lib/order-utils";
 
 async function requireAdmin() {
   const session = await getServerSession(authOptions);
@@ -24,7 +25,7 @@ export async function GET() {
 
     await dbConnect();
 
-    const orders = await Order.find({ status: "paid" })
+    const orders = await Order.find({ status: { $in: CONFIRMED_ORDER_STATUSES } })
       .sort({ createdAt: -1 })
       .limit(500)
       .lean();

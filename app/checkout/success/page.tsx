@@ -1,22 +1,26 @@
 import Link from "next/link";
+import PurchaseTracker from "./PurchaseTracker";
 
 export default async function CheckoutSuccessPage({
   searchParams,
 }: {
-  searchParams: Promise<{ order?: string; receipt?: string }>;
+  searchParams: Promise<{ order?: string; receipt?: string; method?: string }>;
 }) {
   const params = await searchParams;
+  const isCod = params.method === "cod";
 
   return (
     <main className="min-h-screen bg-gray-100 px-4 py-10 text-black sm:px-6 lg:px-10">
+      <PurchaseTracker orderId={params.order} />
       <div className="mx-auto max-w-2xl rounded-2xl bg-white p-8 shadow">
         <p className="mb-3 text-sm font-semibold uppercase tracking-wide text-green-600">
-          Payment successful
+          {isCod ? "Order placed – Cash on Delivery" : "Payment successful"}
         </p>
         <h1 className="text-3xl font-bold">Your order is confirmed</h1>
         <p className="mt-4 text-gray-600">
-          Your payment has been verified successfully. You can download the invoice now or view
-          this order later from your orders page.
+          {isCod
+            ? "Please keep the order amount ready to pay in cash when your parcel arrives. You can download the invoice now or view this order later from your orders page."
+            : "Your payment has been verified successfully. You can download the invoice now or view this order later from your orders page."}
         </p>
 
         <div className="mt-6 space-y-2 rounded-xl bg-gray-50 p-4">

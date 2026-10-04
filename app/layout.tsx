@@ -4,6 +4,9 @@ import Script from "next/script";
 import "./globals.css";
 import Providers from "./providers";
 import MetaPixelPageView from "./components/MetaPixelPageView";
+import AttributionCapture from "./components/AttributionCapture";
+import { META_PIXEL_ID } from "@/lib/meta-pixel";
+import { SITE_NAME, SITE_URL } from "@/lib/site";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -15,9 +18,24 @@ const geistMono = Geist_Mono({
   subsets: ["latin"],
 });
 
+const SITE_DESCRIPTION =
+  "Genuine CA Certified amplifier ICs, transistors and Peerless speaker drivers for DIY audio builders in India. Prices include GST, same-day dispatch on most orders.";
+
 export const metadata: Metadata = {
-  title: "CrazyAudios",
-  description: "Premium Audio Store",
+  metadataBase: new URL(SITE_URL),
+  title: {
+    default: `${SITE_NAME} – Genuine Audio ICs, Transistors & Speaker Drivers`,
+    template: `%s | ${SITE_NAME}`,
+  },
+  description: SITE_DESCRIPTION,
+  openGraph: {
+    type: "website",
+    siteName: SITE_NAME,
+    locale: "en_IN",
+    title: `${SITE_NAME} – Genuine Audio ICs, Transistors & Speaker Drivers`,
+    description: SITE_DESCRIPTION,
+    images: [{ url: "/crazy-audios-logo.jpg", alt: SITE_NAME }],
+  },
 };
 
 export const viewport: Viewport = {
@@ -42,7 +60,7 @@ n.queue=[];t=b.createElement(e);t.async=!0;
 t.src=v;s=b.getElementsByTagName(e)[0];
 s.parentNode.insertBefore(t,s)}(window, document,'script',
 'https://connect.facebook.net/en_US/fbevents.js');
-fbq('init', '1710076160060255');
+fbq('init', '${META_PIXEL_ID}');
 fbq('track', 'PageView');`}
         </Script>
       </head>
@@ -54,7 +72,7 @@ fbq('track', 'PageView');`}
             height="1"
             width="1"
             style={{ display: "none" }}
-            src="https://www.facebook.com/tr?id=1710076160060255&ev=PageView&noscript=1"
+            src={`https://www.facebook.com/tr?id=${META_PIXEL_ID}&ev=PageView&noscript=1`}
             alt=""
           />
         </noscript>
@@ -62,6 +80,7 @@ fbq('track', 'PageView');`}
           {children}
         </Providers>
         <MetaPixelPageView />
+        <AttributionCapture />
       </body>
     </html>
   );

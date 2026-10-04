@@ -3,6 +3,7 @@ import { NextResponse } from "next/server";
 import dbConnect from "@/lib/mongodb";
 import Order from "@/models/Order";
 import Product from "@/models/Product";
+import { sendMetaPurchaseEvent } from "@/lib/meta-capi";
 
 export async function POST(req: Request) {
   try {
@@ -48,7 +49,9 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "Order mismatch" }, { status: 400 });
     }
 
-    if (order.status !== "paid") {
+    const wasAlreadyPaid = order.status === "paid";
+
+    if (!wasAlreadyPaid) {
       for (const item of order.items) {
         const updatedProduct = await Product.findOneAndUpdate(
           { _id: item.productId, stock: { $gte: item.quantity } },
@@ -76,6 +79,12 @@ export async function POST(req: Request) {
       } as any);
     }
     await order.save();
+
+    // Report the sale to Meta once, on the transition to paid (a retried
+    // verification must not count it twice).
+    if (!wasAlreadyPaid && (await sendMetaPurchaseEvent(order, req))) {
+      await Order.updateOne({ _id: order._id }, { metaPurchaseSentAt: new Date() });
+    }
 
     return NextResponse.json({
       success: true,

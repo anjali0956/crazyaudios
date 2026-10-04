@@ -4,7 +4,7 @@ import { PDFDocument, StandardFonts, rgb } from "pdf-lib";
 import dbConnect from "@/lib/mongodb";
 import Order from "@/models/Order";
 import { authOptions } from "@/app/api/auth/[...nextauth]/route";
-import { getTaxBreakdown, roundCurrency } from "@/lib/order-utils";
+import { CONFIRMED_ORDER_STATUSES, getTaxBreakdown, roundCurrency } from "@/lib/order-utils";
 
 // The built-in PDF fonts use WinAnsi encoding, so normalize text supplied by
 // customers/products before measuring or drawing it. This prevents one smart
@@ -75,7 +75,7 @@ export async function GET(
     const isOrderOwner =
       order.userEmail === session.user.email || order.customerEmail === session.user.email;
 
-    if (order.status !== "paid" || (!isAdmin && !isOrderOwner)) {
+    if (!CONFIRMED_ORDER_STATUSES.includes(order.status) || (!isAdmin && !isOrderOwner)) {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 
@@ -273,7 +273,9 @@ export async function GET(
 
     y = drawWrappedBlock(summaryLines, rightX, y, 11, font);
     y -= 2;
-    page.drawText(`Total Paid: Rs ${order.totalAmount}`, {
+    const totalLabel =
+      order.paymentMethod === "cod" ? "Amount Payable on Delivery (Cash)" : "Total Paid";
+    page.drawText(`${totalLabel}: Rs ${order.totalAmount}`, {
       x: rightX,
       y,
       size: 12,
