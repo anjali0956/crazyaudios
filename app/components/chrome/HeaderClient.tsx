@@ -2,37 +2,32 @@
 
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { signOut, useSession } from "next-auth/react";
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type FormEvent, type ReactNode, type RefObject } from "react";
 import { flushSync } from "react-dom";
-import { trackPixelEvent } from "@/lib/meta-pixel";
 import { useCart } from "@/app/components/cart/CartProvider";
-import {
-  IconBag,
-  IconChevronRight,
-  IconClose,
-  IconLogout,
-  IconMenu,
-  IconPackage,
-  IconSearch,
-  IconShield,
-  IconUser,
-  IconWhatsApp,
-} from "@/app/components/icons";
+import { IconBag, IconClose, IconMenu, IconSearch, IconUser } from "@/app/components/icons";
 import { CountBadge, IconButton, IconButtonLink } from "@/app/components/ui/IconButton";
 import { LogoMark } from "@/app/components/ui/LogoMark";
 import { Sheet } from "@/app/components/ui/Sheet";
 import { cx } from "@/app/components/ui/cx";
-import { HELP_LINKS, SUPPORT_HOURS, WHATSAPP_DISPLAY, WHATSAPP_HELP_URL, WHY_GENUINE_HREF } from "./links";
-import { SearchResults, moveFocus, useSearchSuggestions } from "./search";
+import { lazyModule, onIdleAfterLoad, useLazyModule } from "./lazy-module";
+import type { NavDepartment } from "./nav-types";
+import { moveFocus, useSearchSuggestions } from "./search-core";
 
-/** Slim department data the server layout passes to the menu. */
-export type NavDepartment = {
-  id: string;
-  label: string;
-  href: string;
-  count: number;
-  categories: Array<{ label: string; href: string; count: number }>;
+export type { NavDepartment } from "./nav-types";
+
+// The menu's content and the search result list are not part of every page's
+// JavaScript. They load on intent (pointerdown/focus on a trigger), on first
+// open, or when the browser is idle after the page has loaded, so never before
+// LCP. The sheet frames (title, close, search field) stay here, so a sheet
+// opens at once and the search field takes focus inside the tap.
+const menuBody = lazyModule(() => import("./MenuBody"));
+const searchResults = lazyModule(() => import("./search"));
+const preloadMenu = () => {
+  menuBody.preload().catch(() => {});
+};
+const preloadSearch = () => {
+  searchResults.preload().catch(() => {});
 };
 
 type ChromeApi = {
@@ -67,6 +62,15 @@ export function ChromeProvider({
   const searchInputRef = useRef<HTMLInputElement>(null);
   const menuTriggerRef = useRef<HTMLElement | null>(null);
   const searchTriggerRef = useRef<HTMLElement | null>(null);
+
+  useEffect(
+    () =>
+      onIdleAfterLoad(() => {
+        preloadMenu();
+        preloadSearch();
+      }),
+    []
+  );
 
   const openMenu = useCallback(() => {
     menuTriggerRef.current = document.activeElement as HTMLElement | null;
@@ -111,7 +115,15 @@ export function ChromeProvider({
 export function MenuButton({ className }: { className?: string }) {
   const { openMenu } = useChrome();
   return (
-    <IconButton label="Open menu" variant="ghost-on-dark" onClick={openMenu} className={className} aria-haspopup="dialog">
+    <IconButton
+      label="Open menu"
+      variant="ghost-on-dark"
+      onClick={openMenu}
+      onPointerDown={preloadMenu}
+      onFocus={preloadMenu}
+      className={className}
+      aria-haspopup="dialog"
+    >
       <IconMenu size={24} />
     </IconButton>
   );
@@ -120,7 +132,15 @@ export function MenuButton({ className }: { className?: string }) {
 export function SearchButton({ className }: { className?: string }) {
   const { openSearch } = useChrome();
   return (
-    <IconButton label="Search parts" variant="ghost-on-dark" onClick={openSearch} className={className} aria-haspopup="dialog">
+    <IconButton
+      label="Search parts"
+      variant="ghost-on-dark"
+      onClick={openSearch}
+      onPointerDown={preloadSearch}
+      onFocus={preloadSearch}
+      className={className}
+      aria-haspopup="dialog"
+    >
       <IconSearch size={24} />
     </IconButton>
   );
@@ -136,16 +156,14 @@ export function CartButton({ className }: { className?: string }) {
   );
 }
 
+/**
+ * Desktop account link. /my-account sends signed-out visitors to log in and
+ * back (callbackUrl), so the header needs no client session. Not prefetched:
+ * its answer depends on the session.
+ */
 export function AccountButton({ className }: { className?: string }) {
-  const { status } = useSession();
-  const signedIn = status === "authenticated";
   return (
-    <IconButtonLink
-      href={signedIn ? "/my-account" : "/login"}
-      label={signedIn ? "My account" : "Log in"}
-      variant="ghost-on-dark"
-      className={className}
-    >
+    <IconButtonLink href="/my-account" prefetch={false} label="Account" variant="ghost-on-dark" className={className}>
       <IconUser size={24} />
     </IconButtonLink>
   );
@@ -190,6 +208,7 @@ export function HeaderSearchField({ className }: { className?: string }) {
   const inputRef = useRef<HTMLInputElement>(null);
   const listRef = useRef<HTMLDivElement>(null);
   const state = useSearchSuggestions(query);
+  const results = useLazyModule(searchResults, open);
 
   useEffect(() => {
     if (!open) return;
@@ -248,18 +267,19 @@ export function HeaderSearchField({ className }: { className?: string }) {
             setOpen(true);
           }}
           onFocus={() => setOpen(true)}
+          onPointerEnter={preloadSearch}
           onKeyDown={(event) => moveFocus(event, listRef, inputRef)}
           className="h-11 w-full rounded-card border border-white/15 bg-white/[0.07] pl-10 pr-3 text-[15px] text-white placeholder:text-white/55 outline-none transition-colors duration-150 hover:border-white/30 focus:border-white/60 focus:bg-white/[0.11] focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-signal"
         />
       </form>
-      {open ? (
+      {open && results ? (
         <div
           className="absolute right-0 top-[calc(100%+8px)] z-50 max-h-[min(560px,calc(100dvh-96px))] w-[440px] overflow-y-auto rounded-sheet border border-line bg-card p-2 text-ink shadow-raised"
           onKeyDown={(event) => moveFocus(event, listRef, inputRef)}
           // Keep focus in the field while clicking inside the panel (Safari does not focus buttons on click).
           onMouseDown={(event) => event.preventDefault()}
         >
-          <SearchResults
+          <results.SearchResults
             query={query}
             state={state}
             listRef={listRef}
@@ -292,6 +312,7 @@ function SearchSheet({
   const [query, setQuery] = useState("");
   const listRef = useRef<HTMLDivElement>(null);
   const state = useSearchSuggestions(query);
+  const results = useLazyModule(searchResults, open);
 
   const submit = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -360,76 +381,20 @@ function SearchSheet({
       }
     >
       <div onKeyDown={(event) => moveFocus(event, listRef, inputRef)}>
-        <SearchResults
-          query={query}
-          state={state}
-          listRef={listRef}
-          onNavigate={onClose}
-          onPick={(term) => {
-            setQuery(term);
-            inputRef.current?.focus();
-          }}
-        />
+        {results ? (
+          <results.SearchResults
+            query={query}
+            state={state}
+            listRef={listRef}
+            onNavigate={onClose}
+            onPick={(term) => {
+              setQuery(term);
+              inputRef.current?.focus();
+            }}
+          />
+        ) : null}
       </div>
     </Sheet>
-  );
-}
-
-function MenuRow({
-  href,
-  onNavigate,
-  icon,
-  children,
-  meta,
-  external = false,
-  onClick,
-}: {
-  href: string;
-  onNavigate: () => void;
-  icon?: ReactNode;
-  children: ReactNode;
-  meta?: ReactNode;
-  external?: boolean;
-  onClick?: () => void;
-}) {
-  const className =
-    "flex min-h-12 items-center gap-3 border-b border-line px-4 text-[16px] font-medium text-ink outline-none hover:bg-paper focus-visible:bg-paper lg:px-6";
-  const content = (
-    <>
-      {icon ? <span className="grid h-6 w-6 shrink-0 place-items-center text-ink-2">{icon}</span> : null}
-      <span className="min-w-0 flex-1 truncate">{children}</span>
-      {meta}
-      <IconChevronRight size={16} className="shrink-0 text-muted" />
-    </>
-  );
-  if (external) {
-    return (
-      <a
-        href={href}
-        target="_blank"
-        rel="noopener noreferrer"
-        className={className}
-        onClick={() => {
-          onClick?.();
-          onNavigate();
-        }}
-      >
-        {content}
-      </a>
-    );
-  }
-  return (
-    <Link
-      href={href}
-      prefetch={false}
-      className={className}
-      onClick={() => {
-        onClick?.();
-        onNavigate();
-      }}
-    >
-      {content}
-    </Link>
   );
 }
 
@@ -448,10 +413,8 @@ function MenuSheet({
   returnFocusRef: RefObject<HTMLElement | null>;
   onSearch: () => void;
 }) {
-  const { data: session, status } = useSession();
-  const signedIn = status === "authenticated";
-  const isAdmin = session?.user?.role === "admin";
-  const sectionTitle = "type-kicker px-4 pb-2 pt-6 text-muted lg:px-6";
+  const body = useLazyModule(menuBody, open);
+  const MenuBody = body?.default;
 
   return (
     <Sheet
@@ -477,142 +440,7 @@ function MenuSheet({
         </div>
       }
     >
-      <div className="px-4 pt-3 lg:px-6">
-        <button
-          type="button"
-          onClick={onSearch}
-          className="flex h-12 w-full items-center gap-2.5 rounded-card border border-line-strong bg-paper px-3 text-left text-[15px] text-muted hover:border-ink"
-        >
-          <IconSearch size={20} className="text-ink-2" />
-          Search parts, e.g. 2SC5200
-        </button>
-      </div>
-
-      <nav aria-label="Shop by department">
-        {departments.map((group) => (
-          <section key={group.id} aria-label={group.label}>
-            <h2 className={sectionTitle}>{group.label}</h2>
-            <ul className="border-t border-line">
-              {group.categories.length > 1 ? (
-                <li>
-                  <MenuRow
-                    href={group.href}
-                    onNavigate={onClose}
-                    meta={countsLive ? <span className="font-mono text-[12px] text-muted">{group.count}</span> : null}
-                  >
-                    <span className="font-semibold">All {group.label.toLowerCase()}</span>
-                  </MenuRow>
-                </li>
-              ) : null}
-              {group.categories.map((category) => (
-                <li key={category.href}>
-                  <MenuRow
-                    href={category.href}
-                    onNavigate={onClose}
-                    meta={countsLive ? <span className="font-mono text-[12px] text-muted">{category.count}</span> : null}
-                  >
-                    {category.label}
-                  </MenuRow>
-                </li>
-              ))}
-            </ul>
-          </section>
-        ))}
-      </nav>
-
-      <section aria-label="Help">
-        <h2 className={sectionTitle}>Help</h2>
-        <ul className="border-t border-line">
-          <li>
-            <MenuRow href={WHY_GENUINE_HREF} onNavigate={onClose} icon={<IconShield size={20} />}>
-              Why genuine?
-            </MenuRow>
-          </li>
-          <li>
-            <MenuRow href="/track-your-order" onNavigate={onClose} icon={<IconPackage size={20} />}>
-              Track your order
-            </MenuRow>
-          </li>
-          {HELP_LINKS.filter((link) => link.href !== "/track-your-order").map((link) => (
-            <li key={link.href}>
-              <MenuRow href={link.href} onNavigate={onClose}>
-                {link.label}
-              </MenuRow>
-            </li>
-          ))}
-          <li>
-            <MenuRow
-              href={WHATSAPP_HELP_URL}
-              external
-              onNavigate={onClose}
-              onClick={() => trackPixelEvent("Contact", { content_name: "WhatsApp chat", content_category: "menu" })}
-              icon={<IconWhatsApp size={20} className="text-whatsapp" />}
-              meta={<span className="text-[13px] text-muted">{WHATSAPP_DISPLAY}</span>}
-            >
-              WhatsApp
-            </MenuRow>
-          </li>
-        </ul>
-      </section>
-
-      <section aria-label="Account">
-        <h2 className={sectionTitle}>Account</h2>
-        <ul className="border-t border-line">
-          {signedIn ? (
-            <>
-              <li>
-                <MenuRow href="/my-account" onNavigate={onClose} icon={<IconUser size={20} />}>
-                  My account
-                </MenuRow>
-              </li>
-              <li>
-                <MenuRow href="/orders" onNavigate={onClose} icon={<IconPackage size={20} />}>
-                  My orders
-                </MenuRow>
-              </li>
-              {isAdmin ? (
-                <li>
-                  <MenuRow href="/admin" onNavigate={onClose}>
-                    Admin
-                  </MenuRow>
-                </li>
-              ) : null}
-              <li>
-                <button
-                  type="button"
-                  onClick={() => {
-                    onClose();
-                    signOut();
-                  }}
-                  className="flex min-h-12 w-full items-center gap-3 border-b border-line px-4 text-left text-[16px] font-medium text-ink hover:bg-paper lg:px-6"
-                >
-                  <span className="grid h-6 w-6 place-items-center text-ink-2">
-                    <IconLogout size={20} />
-                  </span>
-                  Log out
-                </button>
-              </li>
-            </>
-          ) : (
-            <>
-              <li>
-                <MenuRow href="/login" onNavigate={onClose} icon={<IconUser size={20} />}>
-                  Log in
-                </MenuRow>
-              </li>
-              <li>
-                <MenuRow href="/register" onNavigate={onClose}>
-                  Create an account
-                </MenuRow>
-              </li>
-            </>
-          )}
-        </ul>
-      </section>
-
-      <p className="px-4 pb-8 pt-5 text-[13px] leading-5 text-muted lg:px-6">
-        Support on WhatsApp (messages only), {SUPPORT_HOURS}.
-      </p>
+      {MenuBody ? <MenuBody departments={departments} countsLive={countsLive} onClose={onClose} onSearch={onSearch} /> : null}
     </Sheet>
   );
 }

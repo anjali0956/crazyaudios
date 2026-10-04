@@ -1,12 +1,9 @@
 "use client";
 
-import { SessionProvider } from "next-auth/react";
-import { CategoryProvider } from "./components/CategoryContext";
+import { useEffect } from "react";
+import { usePathname } from "next/navigation";
 import { CartProvider } from "./components/cart/CartProvider";
 import { ToastProvider } from "./components/ui/Toast";
-import { useEffect } from "react";
-import axios from "axios";
-import { usePathname } from "next/navigation";
 
 const safeLocalStorage = {
   get(key: string) {
@@ -31,8 +28,32 @@ const createVisitorId = () => {
   return `visitor-${Date.now()}-${Math.random().toString(36).slice(2, 12)}`;
 };
 
-// The storefront header now lives in app/components/chrome (rendered by the
-// root layout); this file keeps the app-wide providers and traffic logging.
+/**
+ * POSTs { path, visitorId } as JSON to /api/traffic. A beacon is queued by the
+ * browser at low priority (it never competes with the page) and survives
+ * navigation; fetch with keepalive is the fallback. No axios in the shared bundle.
+ */
+function logTraffic(path: string, visitorId: string) {
+  const body = JSON.stringify({ path, visitorId });
+  try {
+    if (typeof navigator.sendBeacon === "function" && navigator.sendBeacon("/api/traffic", new Blob([body], { type: "application/json" }))) {
+      return;
+    }
+  } catch {
+    // Some browsers refuse a JSON Blob in a beacon; fall back to fetch.
+  }
+  fetch("/api/traffic", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body,
+    keepalive: true,
+  }).catch(() => {});
+}
+
+// The storefront header lives in app/components/chrome (rendered by the root
+// layout); this file keeps the app-wide providers and traffic logging. There is
+// no next-auth SessionProvider: pages read the session on the server, the menu
+// fetches it when opened, and signIn/signOut work without a provider.
 export default function Providers({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
 
@@ -53,16 +74,12 @@ export default function Providers({ children }: { children: React.ReactNode }) {
       safeLocalStorage.set("trafficVisitorId", visitorId);
     }
 
-    axios.post("/api/traffic", { path: pathname, visitorId }).catch(() => {});
+    logTraffic(pathname, visitorId);
   }, [pathname]);
 
   return (
-    <SessionProvider>
-      <ToastProvider>
-        <CartProvider>
-          <CategoryProvider>{children}</CategoryProvider>
-        </CartProvider>
-      </ToastProvider>
-    </SessionProvider>
+    <ToastProvider>
+      <CartProvider>{children}</CartProvider>
+    </ToastProvider>
   );
 }
