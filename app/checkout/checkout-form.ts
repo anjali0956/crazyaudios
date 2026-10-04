@@ -201,16 +201,34 @@ const SAVED_KEY = "ca_checkout_details";
 
 type SavedDetails = { phone?: string; email?: string; delivery?: Partial<AddressFields> };
 
-/** Contact + delivery address from the last order on this device (never payment data). */
+// The PIN code a shopper already checked on a product page (DeliveryCheck).
+const PRODUCT_PAGE_PINCODE_KEY = "ca_pincode";
+
+/**
+ * Contact + delivery address from the last order on this device (never payment
+ * data). With no saved order yet, the PIN code checked on a product page still
+ * pre-fills checkout.
+ */
 export function loadSavedDetails(): SavedDetails | null {
+  let data: SavedDetails | null = null;
   try {
     const raw = window.localStorage.getItem(SAVED_KEY);
-    if (!raw) return null;
-    const data = JSON.parse(raw) as SavedDetails;
-    return data && typeof data === "object" ? data : null;
+    if (raw) {
+      const parsed = JSON.parse(raw) as SavedDetails;
+      if (parsed && typeof parsed === "object") data = parsed;
+    }
   } catch {
-    return null;
+    data = null;
   }
+  try {
+    const pincode = (window.localStorage.getItem(PRODUCT_PAGE_PINCODE_KEY) || "").replace(/\D/g, "");
+    if (/^[1-9]\d{5}$/.test(pincode) && !data?.delivery?.pincode) {
+      data = { ...(data ?? {}), delivery: { ...(data?.delivery ?? {}), pincode } };
+    }
+  } catch {
+    // Storage blocked: nothing to pre-fill.
+  }
+  return data;
 }
 
 export function saveDetails(form: CheckoutFormState) {
