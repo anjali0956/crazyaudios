@@ -57,7 +57,11 @@ function FooterColumn({ id, title, links }: { id: string; title: string; links: 
 /** Global footer (every page): brand, contact, link columns, payments, legal. */
 export function Footer() {
   return (
-    <footer className="on-dark mt-auto bg-ink text-white">
+    // content-visibility: the browser skips style and layout of the footer
+    // until it nears the viewport (it is far below the fold on every page),
+    // including the re-layout when the web font swaps in. The intrinsic size
+    // is its real height, so the scrollbar barely moves when it renders.
+    <footer className="on-dark mt-auto bg-ink text-white [content-visibility:auto] [contain-intrinsic-size:auto_1250px] lg:[contain-intrinsic-size:auto_600px]">
       <div className="page-wrap pb-10 pt-12 lg:pb-12 lg:pt-16">
         <div className="grid gap-10 lg:grid-cols-12 lg:gap-8">
           <div className="lg:col-span-5 lg:pr-10">
