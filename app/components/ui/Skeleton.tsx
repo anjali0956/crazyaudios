@@ -53,3 +53,29 @@ export function ProductGridSkeleton({ count = 8, className }: { count?: number; 
     </div>
   );
 }
+
+/**
+ * Whole-page placeholder for a segment's loading.tsx (title block + 4 cards).
+ * Use it only in segments that really stream (e.g. app/search/loading.tsx):
+ * a loading.tsx wraps that segment's page in Suspense, so on first load the
+ * skeleton can paint before the content. Never add one at the app root —
+ * product pages are ad landings and must paint the product first.
+ *
+ *   // app/search/loading.tsx
+ *   export default function Loading() { return <PageSkeleton />; }
+ */
+export function PageSkeleton() {
+  return (
+    <main className="page-wrap flex-1 pb-12 pt-4 lg:pt-6" aria-busy="true">
+      <span className="sr-only" role="status">
+        Loading
+      </span>
+      <div aria-hidden="true">
+        <Skeleton className="h-4 w-40" />
+        <Skeleton className="mt-5 h-8 w-64 max-w-full lg:h-10" />
+        <Skeleton className="mt-3 h-4 w-80 max-w-full" />
+      </div>
+      <ProductGridSkeleton count={4} className="mt-6" />
+    </main>
+  );
+}
