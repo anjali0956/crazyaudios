@@ -9,7 +9,11 @@ export default function ContactUsPage() {
     >
       <section>
         <h2 className="text-xl font-semibold text-gray-900">Email</h2>
-        <p className="mt-2">craudyaudios@gmail.com</p>
+        <p className="mt-2">
+          <a href="mailto:crazyaudios@gmail.com" className="underline underline-offset-2">
+            crazyaudios@gmail.com
+          </a>
+        </p>
       </section>
 
       <section>
