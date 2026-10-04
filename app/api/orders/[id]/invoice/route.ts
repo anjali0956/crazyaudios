@@ -101,12 +101,21 @@ a.secondary{background:#fff;color:#121416;border:1px solid #CFC9BC}
   });
 }
 
+// The business that ships CrazyAudios orders (the same FROM block the admin
+// prints on shipping labels). Env vars override it; GSTIN only ever comes from env.
+const DEFAULT_SELLER_NAME = "ElectroSupply";
+const DEFAULT_SELLER_ADDRESS = [
+  "Nakkara Complex, Town Hall Road",
+  "Irinjalakuda, Thrissur, Kerala - 680121",
+];
+
 function sellerDetails() {
-  const name = String(process.env.INVOICE_SELLER_NAME || "").trim();
-  const address = String(process.env.INVOICE_SELLER_ADDRESS || "")
+  const name = String(process.env.INVOICE_SELLER_NAME || "").trim() || DEFAULT_SELLER_NAME;
+  const configuredAddress = String(process.env.INVOICE_SELLER_ADDRESS || "")
     .split(/\r?\n|\\n|\|/)
     .map((line) => line.trim())
     .filter(Boolean);
+  const address = configuredAddress.length ? configuredAddress : DEFAULT_SELLER_ADDRESS;
   const gstin = String(process.env.INVOICE_SELLER_GSTIN || "").trim().toUpperCase();
   return { name, address, gstin };
 }
@@ -229,8 +238,12 @@ export async function GET(req: Request, context: { params: Promise<{ id: string 
       invoiceNumber = (await assignInvoiceNumber(order._id)) || invoiceNumber;
     }
 
+    // "Tax Invoice" needs the supplier's GSTIN; without one it is a plain invoice.
+    const seller = sellerDetails();
+    const documentTitle = seller.gstin ? "Tax Invoice" : "Invoice";
+
     const pdfDoc = await PDFDocument.create();
-    pdfDoc.setTitle(`Tax Invoice ${invoiceNumber}`);
+    pdfDoc.setTitle(`${documentTitle} ${invoiceNumber}`);
     pdfDoc.setAuthor(SITE_NAME);
     let page: PDFPage = pdfDoc.addPage([595, 842]);
     const font = await pdfDoc.embedFont(StandardFonts.Helvetica);
@@ -293,13 +306,12 @@ export async function GET(req: Request, context: { params: Promise<{ id: string 
 
     // Header: brand on the left, document title on the right.
     page.drawText(SITE_NAME, { x: leftX, y, size: 22, font: boldFont, color: rgb(0, 0, 0) });
-    drawRightAlignedText("Tax Invoice", pageWidth - leftX, y + 2, 18, boldFont);
+    drawRightAlignedText(documentTitle, pageWidth - leftX, y + 2, 18, boldFont);
     y -= 16;
     page.drawText(toPdfText(SITE_URL.replace(/^https?:\/\//, "")), { x: leftX, y, size: 9, font, color: grey });
     y -= 22;
 
-    // Seller identity is printed only from configured values, never invented.
-    const seller = sellerDetails();
+    // Seller identity: env values, else the business on the shipping labels.
     if (seller.name || seller.address.length || seller.gstin) {
       drawWrappedBlock(["Sold by"], leftX, 10, boldFont);
       const sellerLines = [
