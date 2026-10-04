@@ -610,7 +610,7 @@ Meta ads, COD and free shipping (all optional; defaults in brackets):
 - `META_CAPI_ACCESS_TOKEN` (secret) – Conversions API token from Events Manager → Settings. Without it, server-side Purchase events are skipped; the browser pixel still works.
 - `META_TEST_EVENT_CODE` – only while testing; makes server events show in Events Manager → Test events. Remove afterwards.
 - `META_GRAPH_API_VERSION` [`v26.0`]
-- `NEXT_PUBLIC_META_PIXEL_ID` [`1710076160060255`]
+- `NEXT_PUBLIC_META_PIXEL_ID` [`3060638780773435`]
 - `NEXT_PUBLIC_SITE_URL` [`https://www.crazyaudios.com`] – used for absolute links in previews, structured data and the product feed.
 - `NEXT_PUBLIC_FREE_SHIPPING_THRESHOLD` [`1499`] – products total (incl. GST) for free standard shipping; `0` turns it off.
 - `NEXT_PUBLIC_COD_ENABLED` [on] – set to `false` to turn Cash on Delivery off.
