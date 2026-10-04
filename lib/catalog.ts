@@ -306,7 +306,9 @@ export function buildDepartments(products: CatalogProduct[]): DepartmentGroup[] 
       label: group.label,
       blurb: group.blurb,
       categories,
-      count: categories.reduce((sum, category) => sum + category.count, 0),
+      // One per part, as the department page lists them (a model listed in two
+      // categories counts once), so the menu and the page agree.
+      count: dedupeByDisplayName(categories.flatMap((category) => byRaw.get(category.raw) ?? [])).length,
       images,
       href: categories.length === 1 ? categories[0].href : `/category/${group.slug}`,
     };
