@@ -27,6 +27,7 @@ import { getPublicRazorpayKey, getRazorpayClient } from "@/lib/razorpay";
 import { consumeRateLimits, getRequestIp } from "@/lib/rate-limit";
 import { returnStock, takeStock } from "@/lib/stock";
 import { sendPurchaseEventOnce } from "@/lib/payments";
+import { metaMatchFromRequest } from "@/lib/meta-capi";
 
 type IncomingCartItem = {
   _id?: string;
@@ -223,6 +224,8 @@ export async function POST(req: Request) {
       courierName: shippingQuote.courierName,
       estimatedDelivery: shippingQuote.estimatedDeliveryDate,
       attribution,
+      // For the server Purchase event when it is sent from a later request.
+      metaMatch: metaMatchFromRequest(req),
     };
 
     if (paymentMethod === "cod") {

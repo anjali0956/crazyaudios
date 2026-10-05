@@ -102,7 +102,8 @@ export default function PrivacyPolicyPage() {
           <li>
             your IP address and browser details, and Meta&apos;s browser and ad-click identifiers
             (the _fbp and _fbc cookies, or the fbclid tag of the ad you arrived from) when they are
-            available.
+            available. These are saved with your order when you check out, so they can still be
+            sent if your payment is confirmed later by Razorpay.
           </li>
         </ul>
         <p className="mt-2">

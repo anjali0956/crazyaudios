@@ -20,7 +20,10 @@ type OrderForCapi = {
   shippingAddress?: { city?: string; state?: string; pincode?: string };
   items?: Array<{ productId: unknown; quantity: number; unitPrice: number }>;
   attribution?: { fbclid?: string | null; capturedAt?: string | Date | null } | null;
+  metaMatch?: MetaMatch | null;
 };
+
+export type MetaMatch = { fbp?: string; fbc?: string; clientIp?: string; userAgent?: string };
 
 function sha256(value: string) {
   return crypto.createHash("sha256").update(value).digest("hex");
@@ -56,16 +59,38 @@ function getClientIp(headers: Headers) {
   return forwarded ? forwarded.split(",")[0].trim() : "";
 }
 
+/**
+ * The customer's Meta matching details, read from their own checkout request
+ * (create-order is same-site, so the _fbp/_fbc cookies are present). Stored on
+ * the order and used only as a fallback by buildPurchaseEvent.
+ */
+export function metaMatchFromRequest(request: Request): MetaMatch | null {
+  const headers = request.headers;
+  const cookieHeader = headers.get("cookie") || "";
+  const clip = (value: string, max: number) => value.trim().slice(0, max);
+  const match: MetaMatch = {
+    fbp: clip(readCookie(cookieHeader, "_fbp"), 256),
+    fbc: clip(readCookie(cookieHeader, "_fbc"), 512),
+    clientIp: clip(getClientIp(headers), 64),
+    userAgent: clip(headers.get("user-agent") || "", 512),
+  };
+  return Object.values(match).some(Boolean) ? match : null;
+}
+
 export function buildPurchaseEvent(order: OrderForCapi, request: Request) {
   const orderId = String(order._id);
   const headers = request.headers;
   const cookieHeader = headers.get("cookie") || "";
+  // Saved at checkout. The request's own values win; these fill in when the
+  // event is sent from a request that isn't the customer's (Razorpay webhook)
+  // or carries no Meta cookies (Razorpay's cross-site redirect callback).
+  const saved = order.metaMatch || {};
 
   const nameParts = String(order.customerName || "").trim().split(/\s+/).filter(Boolean);
   const firstName = normalizeLetters(nameParts[0]);
   const lastName = nameParts.length > 1 ? normalizeLetters(nameParts[nameParts.length - 1]) : "";
 
-  let fbc = readCookie(cookieHeader, "_fbc");
+  let fbc = readCookie(cookieHeader, "_fbc") || saved.fbc || "";
   const fbclid = order.attribution?.fbclid;
   if (!fbc && fbclid) {
     const capturedAt = order.attribution?.capturedAt
@@ -83,9 +108,9 @@ export function buildPurchaseEvent(order: OrderForCapi, request: Request) {
     st: hashed(normalizeLetters(order.shippingAddress?.state)),
     zp: hashed(String(order.shippingAddress?.pincode || "").replace(/\s/g, "")),
     country: hashed("in"),
-    client_ip_address: getClientIp(headers) || undefined,
-    client_user_agent: headers.get("user-agent") || undefined,
-    fbp: readCookie(cookieHeader, "_fbp") || undefined,
+    client_ip_address: getClientIp(headers) || saved.clientIp || undefined,
+    client_user_agent: headers.get("user-agent") || saved.userAgent || undefined,
+    fbp: readCookie(cookieHeader, "_fbp") || saved.fbp || undefined,
     fbc: fbc || undefined,
   };
   for (const key of Object.keys(userData)) {
