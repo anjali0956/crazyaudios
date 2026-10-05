@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import type { MouseEvent } from "react";
 import axios from "axios";
 import Link from "next/link";
 import { useParams } from "next/navigation";
@@ -9,6 +10,7 @@ import ProductImageWithEmblem from "@/app/components/ProductImageWithEmblem";
 import formatCategoryName from "@/lib/formatCategoryName";
 import { getDisplayPrice } from "@/lib/order-utils";
 import shouldShowCaEmblem from "@/lib/shouldShowCaEmblem";
+import { addProductToCart, addToCartMessage, isOutOfStock, packStep } from "@/lib/add-to-cart";
 
 type Product = {
   _id: string;
@@ -46,6 +48,17 @@ export default function CategoryProductsPage() {
       ),
     [category, products]
   );
+
+  // Same cart item, quantity rules, Pixel event and alert as the product page;
+  // one click adds one unit, or one pack for pack-only products.
+  const addToCartFromCategory = (product: Product, event: MouseEvent<HTMLButtonElement>) => {
+    // The card is a link to the product page; the button must not follow it.
+    event.preventDefault();
+    event.stopPropagation();
+    if (isOutOfStock(product)) return;
+    const result = addProductToCart(product, packStep(product));
+    alert(addToCartMessage(result));
+  };
 
   return (
     <main className="min-h-screen bg-gray-100 text-black p-4 sm:p-6 lg:p-10">
@@ -122,7 +135,11 @@ export default function CategoryProductsPage() {
                       ) : null}
 
                       <div className="mt-auto">
-                        <button className="w-full bg-black text-white py-2.5 text-sm rounded sm:py-2">
+                        <button
+                          onClick={(event) => addToCartFromCategory(product, event)}
+                          disabled={isOutOfStock(product)}
+                          className="w-full bg-black text-white py-2.5 text-sm rounded sm:py-2"
+                        >
                           Add to Cart
                         </button>
                       </div>
