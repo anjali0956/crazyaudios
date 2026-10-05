@@ -161,7 +161,8 @@ export default function CheckoutPage() {
   const [errorMessage, setErrorMessage] = useState("");
   const [shipping, setShipping] = useState<AddressState>(emptyAddress);
   const [billing, setBilling] = useState<AddressState>(emptyAddress);
-  const [sameAsShipping, setSameAsShipping] = useState(false);
+  // Ticked by default: most customers bill to the delivery address.
+  const [sameAsShipping, setSameAsShipping] = useState(true);
   const [shippingQuote, setShippingQuote] = useState<ShippingQuote | null>(null);
   const [shippingLoading, setShippingLoading] = useState(false);
   const [shippingError, setShippingError] = useState("");

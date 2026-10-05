@@ -149,7 +149,6 @@ export default function CartPage() {
   const storedCart = useSyncExternalStore(subscribeToCart, readStoredCart, () => null);
   const cart = useMemo(() => parseCart(storedCart), [storedCart]);
   const cartLoaded = storedCart !== null;
-  const [couponCode, setCouponCode] = useState("");
   const [cartNotice, setCartNotice] = useState("");
 
   // Once the cart has loaded, re-check its prices and stock with the server.
@@ -251,10 +250,6 @@ export default function CartPage() {
 
         <h1 className="mb-6 text-center text-3xl font-medium text-gray-700 sm:mb-8 sm:text-4xl">Cart</h1>
 
-        <div className="mb-6 rounded-sm bg-[#352f8f] px-4 py-4 text-sm text-white sm:mb-8 sm:px-6 sm:text-base">
-          Complete your order and earn points for discounts on future purchases
-        </div>
-
         {cartNotice ? (
           <p role="status" className="mb-4 text-sm font-medium text-orange-600">
             {cartNotice}
@@ -349,24 +344,8 @@ export default function CartPage() {
             ))
           )}
 
-          <div className="flex flex-col gap-4 px-4 py-4 md:px-5 md:py-6 lg:flex-row lg:items-center lg:justify-between">
-            <div className="flex w-full max-w-xl flex-col items-stretch gap-2 sm:flex-row sm:items-center sm:gap-0">
-              <input
-                type="text"
-                value={couponCode}
-                onChange={(e) => setCouponCode(e.target.value)}
-                placeholder="Coupon code"
-                className="h-12 flex-1 rounded-full border border-gray-300 px-5 outline-none sm:rounded-l-full sm:rounded-r-none"
-              />
-              <button className="h-12 rounded-full bg-slate-700 px-8 font-semibold text-white hover:bg-slate-800 sm:rounded-l-none sm:rounded-r-full">
-                Apply coupon
-              </button>
-            </div>
-
+          <div className="flex flex-col gap-4 px-4 py-4 md:px-5 md:py-6 lg:flex-row lg:items-center lg:justify-end">
             <div className="flex w-full flex-col gap-3 sm:flex-row sm:flex-wrap lg:w-auto">
-              <button className="h-12 cursor-not-allowed rounded-full bg-gray-200 px-7 font-semibold text-gray-500">
-                Update cart
-              </button>
               <Link
                 href="/"
                 className="inline-flex h-12 items-center justify-center rounded-full border border-gray-300 bg-white px-7 font-semibold text-gray-700 hover:bg-gray-50"

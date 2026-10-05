@@ -11,6 +11,7 @@ import { getDisplayPrice } from "@/lib/order-utils";
 import shouldShowCaEmblem from "@/lib/shouldShowCaEmblem";
 import { matchesProductName } from "@/lib/product-search";
 import { addProductToCart, addToCartMessage, isOutOfStock, packStep } from "@/lib/add-to-cart";
+import { showCartToast } from "@/lib/toast";
 
 const CATEGORY_IMAGE_OVERRIDES: Record<string, string> = {
   brainsaudios: "/brains-logo.jpg",
@@ -227,11 +228,11 @@ export default function Home() {
     event.stopPropagation();
 
     if (isOutOfStock(product)) {
-      alert("This product is out of stock.");
+      showCartToast("This product is out of stock.");
       return;
     }
     const result = addProductToCart(product, packStep(product));
-    alert(addToCartMessage(result));
+    showCartToast(addToCartMessage(result));
   };
 
   return (
@@ -655,8 +656,7 @@ export default function Home() {
         </div>
 
         <div className="text-center text-sm text-gray-400 mt-10 pb-6">
-          {/* <p>Contact: craudyaudios@gmail.com</p> */}
-          <p className="mt-1">Made with love by rat</p>
+          <p className="mt-1">© {new Date().getFullYear()} CrazyAudios. All rights reserved.</p>
         </div>
       </footer>
     </main>

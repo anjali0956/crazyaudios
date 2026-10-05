@@ -11,6 +11,7 @@ import formatCategoryName from "@/lib/formatCategoryName";
 import { getDisplayPrice } from "@/lib/order-utils";
 import shouldShowCaEmblem from "@/lib/shouldShowCaEmblem";
 import { addProductToCart, addToCartMessage, isOutOfStock, packStep } from "@/lib/add-to-cart";
+import { showCartToast } from "@/lib/toast";
 
 type Product = {
   _id: string;
@@ -57,7 +58,7 @@ export default function CategoryProductsPage() {
     event.stopPropagation();
     if (isOutOfStock(product)) return;
     const result = addProductToCart(product, packStep(product));
-    alert(addToCartMessage(result));
+    showCartToast(addToCartMessage(result));
   };
 
   return (

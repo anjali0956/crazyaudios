@@ -25,7 +25,9 @@ export const DEFAULT_OPEN_GRAPH = {
   locale: "en_IN",
   title: SITE_TITLE,
   description: SITE_DESCRIPTION,
-  images: [{ url: "/crazy-audios-logo.jpg", alt: SITE_NAME }],
+  // 1200x630 (the size WhatsApp/Facebook previews expect), the CrazyAudios logo
+  // without the "Meta AI" watermark that /crazy-audios-logo.jpg carries.
+  images: [{ url: "/crazyaudios-share.jpg", width: 1200, height: 630, alt: SITE_NAME }],
 };
 
 // Meta Business Suite → Brand safety → Domains → crazyaudios.com (meta-tag method).
