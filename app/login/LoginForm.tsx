@@ -2,7 +2,7 @@
 
 import { useState, useSyncExternalStore } from "react";
 import Link from "next/link";
-import { signIn } from "next-auth/react";
+import { getSession, signIn } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import { PasswordInput } from "@/app/components/content/PasswordInput";
 import { IconAlert, IconCheckCircle } from "@/app/components/icons";
@@ -65,10 +65,14 @@ export default function LoginForm() {
 
       setStatus("Signed in. Taking you back…");
       // Read at submit time (no useSearchParams, so the page stays static).
-      const target = safeCallbackPath(
-        new URLSearchParams(window.location.search).get("callbackUrl"),
-        window.location.origin
-      );
+      const requested = new URLSearchParams(window.location.search).get("callbackUrl");
+      let target = safeCallbackPath(requested, window.location.origin);
+      if (!requested) {
+        // Admins land on the admin panel (orders, labels, tracking) unless
+        // they were sent here from a specific page.
+        const session = await getSession().catch(() => null);
+        if (session?.user?.role === "admin") target = "/admin";
+      }
       if (target.startsWith("/api/")) {
         // e.g. an invoice download: a full navigation, not a client-side route.
         window.location.assign(target);
