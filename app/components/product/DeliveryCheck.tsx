@@ -242,8 +242,9 @@ export function DeliveryCheck({
             }
           }}
           className={cx(
-            "h-12 min-w-0 flex-1 rounded-chip border bg-card px-3.5 font-mono text-[16px] tracking-[0.14em] text-ink outline-none transition-colors duration-150",
-            "placeholder:font-sans placeholder:tracking-normal placeholder:text-muted focus:border-ink",
+            "h-12 min-w-0 flex-1 rounded-chip border bg-card px-3.5 font-mono text-[16px] tracking-[0.14em] text-ink transition-colors duration-150",
+            // Same focus treatment as the foundation Field inputs (spec §2: 2px signal-ink ring).
+            "placeholder:font-sans placeholder:tracking-normal placeholder:text-muted focus:border-ink focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-signal-ink",
             invalid ? "border-danger" : "border-line-strong"
           )}
         />

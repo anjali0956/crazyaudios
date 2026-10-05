@@ -93,7 +93,8 @@ export function GalleryCarousel({
           aria-roledescription="carousel"
           aria-label={`Photos of ${alt}`}
           onKeyDown={onKeyDown}
-          className="no-scrollbar flex h-full snap-x snap-mandatory overflow-x-auto overscroll-x-contain outline-none focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-signal-ink"
+          // Tailwind v4: outline-none sets --tw-outline-style:none, so the ring needs outline-solid too.
+          className="no-scrollbar flex h-full snap-x snap-mandatory overflow-x-auto overscroll-x-contain outline-none focus-visible:outline-solid focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-signal-ink"
         >
           {images.map((src, i) => (
             <div

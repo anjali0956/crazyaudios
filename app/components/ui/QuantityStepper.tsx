@@ -58,8 +58,9 @@ export function QuantityStepper({
   const canDecrease = !disabled && value - unit >= floor;
   const canIncrease = !disabled && value + unit <= max;
   const height = size === "lg" ? "h-[52px]" : "h-11";
+  // Focus rings are drawn inside (-outline-offset-2): the rounded group clips anything outside it.
   const button =
-    "grid w-11 shrink-0 place-items-center text-ink transition-colors duration-150 hover:bg-ink/5 disabled:pointer-events-none disabled:text-line-strong";
+    "grid w-11 shrink-0 place-items-center text-ink transition-colors duration-150 hover:bg-ink/5 focus-visible:-outline-offset-2 disabled:pointer-events-none disabled:text-line-strong";
 
   return (
     <div
@@ -85,7 +86,7 @@ export function QuantityStepper({
             commit(event.currentTarget.value);
           }
         }}
-        className="w-12 min-w-0 border-x border-line bg-transparent text-center text-[16px] font-semibold text-ink tabular outline-none focus-visible:bg-paper"
+        className="w-12 min-w-0 border-x border-line bg-transparent text-center text-[16px] font-semibold text-ink tabular focus-visible:bg-paper focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-signal-ink"
       />
       <button type="button" aria-label="Increase quantity" className={button} disabled={!canIncrease} onClick={() => onChange(value + unit)}>
         <IconPlus size={18} />
