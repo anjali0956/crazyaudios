@@ -10,6 +10,8 @@ import { getDisplayPrice } from "@/lib/order-utils";
 import shouldShowCaEmblem from "@/lib/shouldShowCaEmblem";
 import { trackPixelEvent } from "@/lib/meta-pixel";
 import { addProductToCart, addToCartMessage, isOutOfStock, maxCartQuantity } from "@/lib/add-to-cart";
+import { showCartToast } from "@/lib/toast";
+import { productTrustLine } from "@/lib/trust-line";
 import { absoluteUrl } from "@/lib/site";
 import { WhatsAppProductButton } from "@/app/components/WhatsApp";
 import ProductNotFound from "./ProductNotFound";
@@ -123,6 +125,7 @@ export default function ProductDetails() {
   const activeImage = galleryImages[currentImageIndex] || product?.image || "";
   const packSize = Math.max(0, Number(product?.packSize) || 0);
   const quantityStep = Math.max(1, packSize || 1);
+  const trustLine = product ? productTrustLine(product) : null;
   const activeDisplayPrice =
     product?.flashSale && (product.discountPercentage || 0) > 0
       ? finalPrice
@@ -137,7 +140,7 @@ export default function ProductDetails() {
     if (!product || outOfStock) return;
     // Caps this product's total in the cart at its stock.
     const result = addProductToCart(product, quantity);
-    alert(addToCartMessage(result));
+    showCartToast(addToCartMessage(result));
   };
 
   if (id && missingId === id) return <ProductNotFound />;
@@ -250,6 +253,7 @@ export default function ProductDetails() {
             ) : (
               <span className="text-lg font-semibold text-green-600">In stock</span>
             )}
+            {trustLine ? <p className="mt-1 text-sm font-semibold text-green-700">✓ {trustLine}</p> : null}
           </div>
 
           {product.flashSale && (product.discountPercentage || 0) > 0 && (
