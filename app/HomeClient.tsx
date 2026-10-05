@@ -57,10 +57,33 @@ type Product = {
   flashSale?: boolean;
   discountPercentage?: number;
   stock?: number;
+  createdAt?: string;
 };
+
+// When no product is marked as featured, the grid shows this many of the
+// newest in-stock products instead.
+const NEWEST_PRODUCTS_FALLBACK = 12;
+
+// Creation time from createdAt, or from the Mongo ObjectId if it is missing.
+function createdTime(product: Product) {
+  const fromField = Date.parse(String(product.createdAt || ""));
+  if (!Number.isNaN(fromField)) return fromField;
+  const fromId = parseInt(String(product._id || "").slice(0, 8), 16);
+  return Number.isNaN(fromId) ? 0 : fromId * 1000;
+}
+
+function newestInStock(products: Product[], count: number) {
+  return products
+    .map((product, index) => ({ product, index, created: createdTime(product) }))
+    .filter(({ product }) => typeof product.stock !== "number" || product.stock > 0)
+    .sort((a, b) => b.created - a.created || a.index - b.index)
+    .slice(0, count)
+    .map(({ product }) => product);
+}
 
 export default function Home() {
   const [products, setProducts] = useState<Product[]>([]);
+  const [productsLoaded, setProductsLoaded] = useState(false);
   const { setSelectedCategory } = useCategory();
 
   const [heroSlide, setHeroSlide] = useState(0);
@@ -86,9 +109,11 @@ export default function Home() {
       .get("/api/products")
       .then((res) => {
         setProducts(Array.isArray(res.data) ? res.data : []);
+        setProductsLoaded(true);
       })
       .catch(() => {
         setProducts([]);
+        setProductsLoaded(true);
       });
 
     axios
@@ -113,10 +138,11 @@ export default function Home() {
       });
   }, [setSelectedCategory]);
 
-  const featuredProducts = useMemo(
-    () => products.filter((product) => Boolean(product.featured)),
-    [products]
-  );
+  // Featured products, or the newest in-stock products if none are featured.
+  const featuredProducts = useMemo(() => {
+    const featured = products.filter((product) => Boolean(product.featured));
+    return featured.length > 0 ? featured : newestInStock(products, NEWEST_PRODUCTS_FALLBACK);
+  }, [products]);
 
   const categoryCards = useMemo(() => {
     const categories = new Map<string, { category: string; image: string }>();
@@ -408,9 +434,10 @@ export default function Home() {
           })}
         </div>
 
-        {filteredFeaturedProducts.length === 0 && (
+        {/* Only once products have loaded, only when a filter hid them all, and never admin instructions. */}
+        {productsLoaded && featuredProducts.length > 0 && filteredFeaturedProducts.length === 0 && (
           <p className="text-center text-gray-600 mt-8">
-            No featured products found for this filter. Mark products as featured in Admin.
+            No featured products found for this filter.
           </p>
         )}
       </section>
