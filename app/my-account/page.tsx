@@ -1,12 +1,27 @@
+import type { Metadata } from "next";
 import Link from "next/link";
+import type { ReactNode } from "react";
 import { redirect } from "next/navigation";
 import { getServerSession } from "next-auth";
 import InfoPageShell from "@/app/components/InfoPageShell";
+import { OrderCard } from "@/app/components/content/OrderCard";
+import { SignOutButton } from "@/app/components/content/SignOutButton";
+import { WhatsAppLink } from "@/app/components/chrome/TrackedLink";
+import { WHATSAPP_DISPLAY } from "@/app/components/chrome/links";
+import { IconArrowRight, IconBag, IconPackage, IconTruck, IconWhatsApp } from "@/app/components/icons";
+import { ButtonLink } from "@/app/components/ui/Button";
 import { authOptions } from "@/app/api/auth/[...nextauth]/route";
 import dbConnect from "@/lib/mongodb";
 import Order from "@/models/Order";
 import { CONFIRMED_ORDER_STATUSES } from "@/lib/order-utils";
 import { orderInvoicePath, ownedOrdersFilter } from "@/lib/order-access";
+import { pluralize } from "@/lib/format";
+import { whatsappLink } from "@/lib/site";
+
+export const metadata: Metadata = {
+  title: "My account",
+  robots: { index: false, follow: true },
+};
 
 type AccountOrder = {
   _id: { toString(): string };
@@ -18,17 +33,27 @@ type AccountOrder = {
   estimatedDelivery?: Date | null;
   totalAmount: number;
   customerEmail: string;
-  items: Array<{ productId: unknown; name: string; quantity: number; lineTotal: number }>;
+  items: Array<{ productId: unknown; name: string; quantity: number; lineTotal: number; image?: string }>;
 };
 
-function formatStatus(status: string) {
-  return status
-    .replaceAll("_", " ")
-    .replace(/\b\w/g, (char) => char.toUpperCase());
-}
+const RECENT_ORDERS = 3;
 
-function formatCurrency(value: number) {
-  return `Rs ${Number(value || 0).toFixed(2)}`;
+const tileClass =
+  "group flex min-h-[72px] items-center gap-3 rounded-card border border-line bg-card px-4 py-3 transition-colors duration-150 hover:border-line-strong hover:bg-paper";
+
+function TileBody({ icon, title, text }: { icon: ReactNode; title: string; text: string }) {
+  return (
+    <>
+      <span aria-hidden="true" className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-paper text-ink-2 group-hover:bg-card">
+        {icon}
+      </span>
+      <span className="min-w-0 flex-1">
+        <span className="block text-[15px] font-semibold leading-5 text-ink">{title}</span>
+        <span className="mt-0.5 block truncate text-[13px] leading-[18px] text-muted">{text}</span>
+      </span>
+      <IconArrowRight size={18} className="shrink-0 text-ink-2 transition-transform duration-150 group-hover:translate-x-0.5" />
+    </>
+  );
 }
 
 export default async function MyAccountPage() {
@@ -47,102 +72,113 @@ export default async function MyAccountPage() {
         .sort({ createdAt: -1 })
         .lean<AccountOrder[]>()
     : [];
+  const recent = orders.slice(0, RECENT_ORDERS);
+  const firstName = String(session.user.name || "").trim().split(/\s+/)[0];
 
   return (
     <InfoPageShell
-      title="My Account"
-      subtitle="Your order history, invoices, and account shortcuts in one place."
+      kicker="Account"
+      title={firstName ? `Hello, ${firstName}` : "My account"}
+      crumbs={[{ label: "Home", href: "/" }, { label: "My account" }]}
+      subtitle={
+        <>
+          Signed in as <span className="break-all font-semibold text-ink">{session.user.email}</span>
+        </>
+      }
     >
-      <section>
-        <h2 className="text-xl font-semibold text-gray-900">Account Shortcuts</h2>
-        <div className="mt-4 grid gap-3 sm:grid-cols-2">
-          <Link href="/cart" className="rounded-lg border border-gray-200 px-4 py-3 font-medium hover:bg-gray-50">
-            View Cart
-          </Link>
-          <Link href="/checkout" className="rounded-lg border border-gray-200 px-4 py-3 font-medium hover:bg-gray-50">
-            Go to Checkout
-          </Link>
-          <Link href="/orders" className="rounded-lg border border-gray-200 px-4 py-3 font-medium hover:bg-gray-50">
-            My Orders
-          </Link>
-        </div>
-      </section>
+      <nav aria-label="Account shortcuts">
+        <ul className="grid gap-3 sm:grid-cols-2">
+          <li>
+            <Link href="/orders" className={tileClass}>
+              <TileBody
+                icon={<IconPackage size={20} />}
+                title="My orders"
+                text={orders.length ? pluralize(orders.length, "order") : "No orders yet"}
+              />
+            </Link>
+          </li>
+          <li>
+            <Link href="/track-your-order" className={tileClass}>
+              <TileBody icon={<IconTruck size={20} />} title="Track an order" text="With a receipt number and email" />
+            </Link>
+          </li>
+          <li>
+            <Link href="/cart" className={tileClass}>
+              <TileBody icon={<IconBag size={20} />} title="Cart" text="Review and check out" />
+            </Link>
+          </li>
+          <li>
+            <WhatsAppLink
+              href={whatsappLink("Hi CrazyAudios, I need help with my account or an order.")}
+              source="account"
+              className={tileClass}
+            >
+              <TileBody icon={<IconWhatsApp size={20} className="text-whatsapp" />} title="WhatsApp support" text={`${WHATSAPP_DISPLAY} · messages only`} />
+            </WhatsAppLink>
+          </li>
+        </ul>
+      </nav>
 
-      <section>
-        <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
-          <div>
-            <h2 className="text-xl font-semibold text-gray-900">Order History</h2>
-            <p className="mt-1 text-sm text-gray-600">
-              Signed in as {session.user.email}
+      <section aria-labelledby="recent-orders">
+        <div className="flex items-end justify-between gap-4">
+          <h2 id="recent-orders" className="type-h2 text-ink">
+            Recent orders
+          </h2>
+          {orders.length > RECENT_ORDERS ? (
+            <Link
+              href="/orders"
+              className="group -mr-2 inline-flex min-h-11 shrink-0 items-center gap-1.5 rounded-chip px-2 text-[14px] font-semibold text-ink hover:text-signal-ink"
+            >
+              All {orders.length} orders
+              <IconArrowRight size={16} className="transition-transform duration-150 group-hover:translate-x-0.5" />
+            </Link>
+          ) : null}
+        </div>
+
+        {recent.length === 0 ? (
+          <div className="mt-4 rounded-card border border-line bg-card p-5 sm:p-6">
+            <p className="text-[16px] font-semibold leading-6 text-ink">No orders on this account yet</p>
+            <p className="mt-1 text-[15px] leading-[22px] text-ink-2">
+              Orders you place while signed in appear here. Ordered as a guest? Find it with{" "}
+              <Link href="/track-your-order" className="font-semibold text-signal-ink underline decoration-1 underline-offset-[3px]">
+                Track your order
+              </Link>
+              .
             </p>
-          </div>
-          <Link href="/orders" className="text-sm font-semibold text-blue-700 hover:text-blue-900">
-            Open full orders page
-          </Link>
-        </div>
-
-        {orders.length === 0 ? (
-          <div className="mt-4 rounded-lg border border-gray-200 bg-gray-50 p-4 text-sm text-gray-600">
-            No orders found for this account yet.
+            <ButtonLink href="/category/amplifier-ics" variant="dark" className="mt-5">
+              Shop amplifier ICs
+            </ButtonLink>
           </div>
         ) : (
-          <div className="mt-4 overflow-x-auto rounded-lg border border-gray-200">
-            <table className="min-w-full divide-y divide-gray-200 text-sm">
-              <thead className="bg-gray-50 text-left text-xs font-semibold uppercase tracking-wide text-gray-600">
-                <tr>
-                  <th className="px-4 py-3">Order</th>
-                  <th className="px-4 py-3">Invoice</th>
-                  <th className="px-4 py-3">Date</th>
-                  <th className="px-4 py-3">Status</th>
-                  <th className="px-4 py-3">Total</th>
-                  <th className="px-4 py-3 text-right">Actions</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-gray-100 bg-white">
-                {orders.map((order) => (
-                  <tr key={order._id.toString()}>
-                    <td className="px-4 py-3 font-semibold text-gray-900">{order.receipt}</td>
-                    <td className="px-4 py-3 text-gray-700">{order.invoiceNumber}</td>
-                    <td className="px-4 py-3 text-gray-600">
-                      {order.createdAt ? new Date(order.createdAt).toLocaleDateString("en-IN") : "-"}
-                    </td>
-                    <td className="px-4 py-3 text-blue-700">
-                      {formatStatus(order.fulfillmentStatus || "processing")}
-                    </td>
-                    <td className="px-4 py-3 font-semibold text-gray-900">
-                      {formatCurrency(order.totalAmount)}
-                    </td>
-                    <td className="px-4 py-3">
-                      <div className="flex justify-end gap-2">
-                        <Link
-                          href={`/track-your-order?receipt=${encodeURIComponent(order.receipt)}&email=${encodeURIComponent(order.customerEmail)}`}
-                          className="rounded-lg border border-gray-300 px-3 py-2 text-xs font-semibold text-gray-700 hover:bg-gray-50"
-                        >
-                          Track
-                        </Link>
-                        <a
-                          href={orderInvoicePath(order)}
-                          className="rounded-lg bg-black px-3 py-2 text-xs font-semibold text-white hover:bg-gray-800"
-                        >
-                          Invoice
-                        </a>
-                      </div>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+          <ol className="mt-4 space-y-4">
+            {recent.map((order) => (
+              <li key={order._id.toString()}>
+                <OrderCard
+                  compact
+                  headingLevel="h3"
+                  invoiceHref={orderInvoicePath(order)}
+                  order={{
+                    id: order._id.toString(),
+                    receipt: order.receipt,
+                    invoiceNumber: order.invoiceNumber,
+                    paymentMethod: order.paymentMethod,
+                    createdAt: order.createdAt,
+                    fulfillmentStatus: order.fulfillmentStatus,
+                    estimatedDelivery: order.estimatedDelivery,
+                    totalAmount: order.totalAmount,
+                    customerEmail: order.customerEmail,
+                    items: order.items,
+                  }}
+                />
+              </li>
+            ))}
+          </ol>
         )}
       </section>
 
-      <section>
-        <h2 className="text-xl font-semibold text-gray-900">Support</h2>
-        <p className="mt-2">
-          If you need help with an order, delivery update, or product recommendation, our support
-          team can guide you through the next step.
-        </p>
-      </section>
+      <div className="border-t border-line pt-8">
+        <SignOutButton />
+      </div>
     </InfoPageShell>
   );
 }
