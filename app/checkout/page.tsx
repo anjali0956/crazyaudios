@@ -27,6 +27,7 @@ import {
 } from "@/lib/meta-pixel";
 import { getStoredAttribution } from "@/lib/attribution";
 import { INDIAN_STATES_AND_UTS } from "@/lib/india";
+import { PENDING_ORDER_KEY, SAVED_CHECKOUT_FORM_KEY } from "./success/ClearPaidCart";
 
 type CartItem = {
   _id: string;
@@ -109,6 +110,50 @@ function loadRazorpayScript() {
   });
 }
 
+// Instagram and Facebook in-app browsers: Razorpay's in-page modal often dies
+// when the customer switches to a UPI app and back, so there Razorpay opens in
+// redirect mode and posts the result to /api/razorpay/callback instead.
+function isInAppBrowser() {
+  return /FBAN|FBAV|Instagram/i.test(window.navigator.userAgent);
+}
+
+// /api/razorpay/callback sends a payment that didn't complete back to
+// /checkout?payment=failed&reason=…. Only these fixed messages are shown.
+function paymentReturnMessage(reason: string | null) {
+  if (reason === "cancelled") return "Payment was cancelled";
+  if (reason === "verify") {
+    return "We couldn't verify your payment. If money was deducted, please contact us before paying again.";
+  }
+  return "Payment failed. Please try again.";
+}
+
+function readSavedAddress(value: unknown): AddressState {
+  const source = (value && typeof value === "object" ? value : {}) as Record<string, unknown>;
+  const address = { ...emptyAddress };
+  for (const key of Object.keys(address) as Array<keyof AddressState>) {
+    const field = source[key];
+    if (typeof field === "string") address[key] = field;
+  }
+  return address;
+}
+
+// The details typed before a redirect payment (this tab only), read once.
+function takeSavedCheckoutForm() {
+  try {
+    const raw = window.sessionStorage.getItem(SAVED_CHECKOUT_FORM_KEY);
+    if (!raw) return null;
+    window.sessionStorage.removeItem(SAVED_CHECKOUT_FORM_KEY);
+    const saved = JSON.parse(raw) as Record<string, unknown> | null;
+    return {
+      shipping: readSavedAddress(saved?.shipping),
+      billing: readSavedAddress(saved?.billing),
+      sameAsShipping: saved?.sameAsShipping === true,
+    };
+  } catch {
+    return null;
+  }
+}
+
 export default function CheckoutPage() {
   const router = useRouter();
   const [cart, setCart] = useState<CartItem[]>([]);
@@ -127,6 +172,30 @@ export default function CheckoutPage() {
   useEffect(() => {
     const storedCart = JSON.parse(localStorage.getItem("cart") || "[]") as CartItem[];
     setCart(storedCart);
+  }, []);
+
+  useEffect(() => {
+    // Back from Razorpay's redirect flow without a completed payment.
+    const params = new URLSearchParams(window.location.search);
+    if (params.get("payment") === "failed") {
+      setErrorMessage(paymentReturnMessage(params.get("reason")));
+      // A reload shouldn't show the message again.
+      window.history.replaceState(null, "", window.location.pathname);
+    }
+    const saved = takeSavedCheckoutForm();
+    if (saved) {
+      setShipping(saved.shipping);
+      setBilling(saved.billing);
+      setSameAsShipping(saved.sameAsShipping);
+    }
+
+    // Returning to this page from Razorpay's (back/forward cache): let the
+    // customer pay again instead of leaving the button stuck.
+    const onPageShow = (event: PageTransitionEvent) => {
+      if (event.persisted) setIsPaying(false);
+    };
+    window.addEventListener("pageshow", onPageShow);
+    return () => window.removeEventListener("pageshow", onPageShow);
   }, []);
 
   useEffect(() => {
@@ -344,6 +413,7 @@ export default function CheckoutPage() {
       const orderRes = await axios.post("/api/create-order", orderPayload);
 
       const order = orderRes.data;
+      const inAppBrowser = isInAppBrowser();
 
       const razorpay = new window.Razorpay({
         key: order.key_id,
@@ -417,6 +487,11 @@ export default function CheckoutPage() {
             setErrorMessage("Payment was cancelled");
           },
         },
+        // In-app browsers: Razorpay's own page, then a form POST to the
+        // callback, which confirms the payment (the handler isn't called).
+        ...(inAppBrowser
+          ? { redirect: true, callback_url: `${window.location.origin}/api/razorpay/callback` }
+          : {}),
       });
 
       razorpay.on("payment.failed", (response: unknown) => {
@@ -426,6 +501,25 @@ export default function CheckoutPage() {
             "Payment failed. Please try again."
         );
       });
+
+      if (inAppBrowser) {
+        // In redirect mode this page is gone when the payment completes, so
+        // the success page gets the Purchase details and the order id now.
+        rememberPurchase(
+          order.internal_order_id,
+          Number(order.totals?.totalAmount) || grandTotal,
+          "prepaid"
+        );
+        try {
+          sessionStorage.setItem(PENDING_ORDER_KEY, order.internal_order_id);
+          sessionStorage.setItem(
+            SAVED_CHECKOUT_FORM_KEY,
+            JSON.stringify({ shipping, billing, sameAsShipping })
+          );
+        } catch {
+          // Storage blocked: the payment itself still works.
+        }
+      }
 
       razorpay.open();
     } catch (error) {

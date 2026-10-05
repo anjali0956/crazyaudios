@@ -3,6 +3,7 @@ import dbConnect from "@/lib/mongodb";
 import { findOrderByIdAndReceipt, orderInvoicePath } from "@/lib/order-access";
 import { CONFIRMED_ORDER_STATUSES } from "@/lib/order-utils";
 import PurchaseTracker from "./PurchaseTracker";
+import ClearPaidCart from "./ClearPaidCart";
 
 export const dynamic = "force-dynamic";
 
@@ -148,6 +149,7 @@ export default async function CheckoutSuccessPage({
           </Link>
         </div>
       </div>
+      {isConfirmed ? <ClearPaidCart orderId={orderId} /> : null}
     </main>
   );
 }
