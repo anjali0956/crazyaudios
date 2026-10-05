@@ -12,7 +12,6 @@ const REQUEST_TIMEOUT_MS = 4000;
 type OrderForCapi = {
   _id: unknown;
   totalAmount: number;
-  subtotal?: number;
   currency?: string;
   customerEmail?: string;
   customerPhone?: string;
@@ -102,7 +101,7 @@ export function buildPurchaseEvent(order: OrderForCapi, request: Request) {
     user_data: userData,
     custom_data: {
       currency: order.currency || "INR",
-      value: Number(order.subtotal ?? order.totalAmount) || 0,
+      value: Number(order.totalAmount) || 0,
       order_id: orderId,
       content_type: "product",
       content_ids: items.map((item) => String(item.productId)),

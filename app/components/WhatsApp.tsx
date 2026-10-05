@@ -4,11 +4,8 @@ import { usePathname } from "next/navigation";
 import { trackPixelEvent } from "@/lib/meta-pixel";
 import { whatsappLink } from "@/lib/site";
 
-// Paths where a floating chat button would only get in the way: the admin,
-// the cart and checkout (their sticky CTAs own the bottom of the screen) and the
-// preview gate. Pages with a sticky bottom bar hide it via useBottomBar()
-// (html[data-bottom-bar], see .ca-wa-float in globals.css).
-const HIDE_FLOATING_ON = [/^\/admin(\/|$)/, /^\/checkout$/, /^\/cart$/, /^\/preview(\/|$)/];
+// Paths where a floating chat button would only get in the way.
+const HIDE_FLOATING_ON = [/^\/admin(\/|$)/, /^\/checkout$/];
 
 function WhatsAppIcon({ className }: { className?: string }) {
   return (
@@ -34,9 +31,9 @@ export default function WhatsAppFloatingButton() {
       rel="noopener noreferrer"
       aria-label="Chat with CrazyAudios on WhatsApp"
       onClick={() => trackWhatsAppClick("floating_button")}
-      className="ca-wa-float fixed bottom-[calc(16px+env(safe-area-inset-bottom))] right-4 z-30 inline-flex h-[52px] w-[52px] items-center justify-center rounded-full bg-whatsapp text-white shadow-raised transition-[opacity,transform,visibility] duration-200 ease-out hover:shadow-[inset_0_0_0_100px_rgb(18_20_22/0.08),0_1px_2px_rgb(18_20_22/0.06),0_10px_28px_-14px_rgb(18_20_22/0.22)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-signal-ink lg:bottom-6 lg:right-6"
+      className="fixed bottom-4 right-4 z-40 inline-flex h-14 w-14 items-center justify-center rounded-full bg-[#25D366] text-white shadow-lg transition hover:bg-[#1ebe5d] focus:outline-none focus-visible:ring-4 focus-visible:ring-green-300 sm:bottom-6 sm:right-6"
     >
-      <WhatsAppIcon className="h-7 w-7" />
+      <WhatsAppIcon className="h-8 w-8" />
     </a>
   );
 }
