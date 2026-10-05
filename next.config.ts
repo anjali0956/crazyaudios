@@ -12,9 +12,6 @@ const securityHeaders = [
 
 const nextConfig: NextConfig = {
   poweredByHeader: false,
-  experimental: {
-    inlineCss: true,
-  },
   images: {
     // Built-in optimiser: resizes product photos (/public and /api/uploads/<id>)
     // and serves AVIF/WebP; optimised variants are cached for 30 days.
