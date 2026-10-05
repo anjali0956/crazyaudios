@@ -1,5 +1,6 @@
 import { IconCheckCircle } from "@/app/components/icons";
 import { Breadcrumbs, type Crumb } from "@/app/components/ui/Breadcrumbs";
+import { ClaimLine } from "@/app/components/ui/ClaimLine";
 import { formatNumber } from "@/lib/format";
 
 /**
@@ -38,7 +39,7 @@ export function ListingHeader({
       {trust ? (
         <p className="mt-2.5 flex items-start gap-1.5 text-[13px] font-medium leading-[18px] text-ok">
           <IconCheckCircle size={16} className="mt-px shrink-0" />
-          {trust}
+          <ClaimLine text={trust} />
         </p>
       ) : null}
     </header>

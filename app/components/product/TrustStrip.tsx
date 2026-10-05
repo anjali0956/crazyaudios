@@ -2,6 +2,7 @@ import Link from "next/link";
 import type { ReactNode } from "react";
 import { IconCheckCircle, IconChevronRight, IconReceipt, IconReturn, IconShield, IconTruck } from "@/app/components/icons";
 import { WHY_GENUINE_HREF } from "@/app/components/chrome/links";
+import { ClaimLine } from "@/app/components/ui/ClaimLine";
 import { cx } from "@/app/components/ui/cx";
 
 function Item({ icon, title, children }: { icon: ReactNode; title: string; children: ReactNode }) {
@@ -38,7 +39,7 @@ export function TrustStrip({
         <IconShield size={22} className="mt-px shrink-0 text-ok" />
         <div className="min-w-0">
           <h2 id="pdp-trust-title" className="text-[15px] font-semibold leading-[22px] tracking-normal text-ink [font-stretch:100%]">
-            {line}
+            <ClaimLine text={line} />
           </h2>
           {qualityChecked ? (
             <p className="mt-0.5 text-[14px] leading-5 text-ink-2">Every batch is quality-checked (CA Certified).</p>
