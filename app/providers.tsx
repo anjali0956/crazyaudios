@@ -4,9 +4,10 @@ import { SessionProvider, useSession, signOut } from "next-auth/react";
 import Link from "next/link";
 import CategoryDropdown from "./components/CategoryDropdown";
 import { CategoryProvider } from "./components/CategoryContext";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState, useSyncExternalStore } from "react";
 import axios from "axios";
 import { useRouter, usePathname } from "next/navigation";
+import { searchProductsByName } from "@/lib/product-search";
 
 const safeLocalStorage = {
   get(key: string) {
@@ -31,25 +32,35 @@ const createVisitorId = () => {
   return `visitor-${Date.now()}-${Math.random().toString(36).slice(2, 12)}`;
 };
 
+type SearchProduct = {
+  _id: string;
+  name: string;
+  price: number;
+  image?: string;
+  stock?: number;
+};
+
+// The saved search is read once, after hydration (the server renders an empty
+// box); nothing else writes it, so there is nothing to subscribe to.
+const subscribeToNothing = () => () => {};
+const readSavedSearch = () => safeLocalStorage.get("search") || "";
+const serverSavedSearch = () => "";
+
 function Navbar() {
   const { data: session } = useSession();
 
-  const [search, setSearch] = useState("");
-  const [products, setProducts] = useState<any[]>([]);
-  const [suggestions, setSuggestions] = useState<any[]>([]);
+  const savedSearch = useSyncExternalStore(subscribeToNothing, readSavedSearch, serverSavedSearch);
+  const [typedSearch, setTypedSearch] = useState<string | null>(null);
+  const search = typedSearch ?? savedSearch;
+  const [products, setProducts] = useState<SearchProduct[]>([]);
 
   const router = useRouter();
 
   const updateSearch = (value: string) => {
-    setSearch(value);
+    setTypedSearch(value);
     safeLocalStorage.set("search", value);
     window.dispatchEvent(new Event("searchUpdate"));
   };
-
-  useEffect(() => {
-    const savedSearch = safeLocalStorage.get("search") || "";
-    setSearch(savedSearch);
-  }, []);
 
   // ✅ Fetch products once
   useEffect(() => {
@@ -63,19 +74,11 @@ function Navbar() {
       });
   }, []);
 
-  // ✅ Filter suggestions
-  useEffect(() => {
-    if (!search.trim()) {
-      setSuggestions([]);
-      return;
-    }
-
-    const filtered = products.filter((p: any) =>
-      p.name.toLowerCase().includes(search.toLowerCase())
-    );
-
-    setSuggestions(filtered.slice(0, 5));
-  }, [search, products]);
+  // ✅ Filter suggestions: part numbers match loosely ("lm3886" finds "LM 3886")
+  const suggestions = useMemo(
+    () => (search.trim() ? searchProductsByName(products, search, 5) : []),
+    [search, products]
+  );
 
   return (
     <nav className="flex flex-col gap-4 bg-black px-4 py-4 text-white sm:px-6 lg:flex-row lg:items-center lg:justify-between lg:px-8">
@@ -113,16 +116,17 @@ function Navbar() {
                   onClick={() => {
                     router.push(`/product/${item._id}`);
                     updateSearch("");
-                    setSuggestions([]);
                   }}
                   className="flex items-center gap-3 px-4 py-2 hover:bg-gray-200 cursor-pointer border-b last:border-none"
                 >
                   <div className="relative w-10 h-10">
+                    {/* eslint-disable-next-line @next/next/no-img-element -- original suggestion thumbnail, kept as is */}
                     <img
                       src={String(item.image || "").trim() || "/logo.png"}
                       alt={item.name}
                       className="w-10 h-10 object-contain"
                     />
+                    {/* eslint-disable-next-line @next/next/no-img-element -- original emblem overlay, kept as is */}
                     <img
                       src="/emblems/ca-certified.svg"
                       alt="Crazy Audios emblem"

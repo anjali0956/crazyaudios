@@ -10,6 +10,7 @@ import formatCategoryName from "@/lib/formatCategoryName";
 import { getDisplayPrice } from "@/lib/order-utils";
 import shouldShowCaEmblem from "@/lib/shouldShowCaEmblem";
 import { trackPixelEvent } from "@/lib/meta-pixel";
+import { matchesProductName } from "@/lib/product-search";
 
 const CATEGORY_IMAGE_OVERRIDES: Record<string, string> = {
   brainsaudios: "/brains-logo.jpg",
@@ -177,7 +178,7 @@ export default function Home() {
   }, []);
 
   const filteredFeaturedProducts = featuredProducts.filter((product) => {
-    const matchesSearch = product.name?.toLowerCase().includes(search.toLowerCase());
+    const matchesSearch = matchesProductName(product.name, search);
     const displayPrice = getDisplayPrice(
       product.price,
       product.discountPercentage || 0,
@@ -204,7 +205,7 @@ export default function Home() {
       Boolean(product.flashSale)
     );
 
-    const existingItem = storedCart.find((item: any) => item._id === product._id);
+    const existingItem = storedCart.find((item: { _id?: string }) => item._id === product._id);
     const packQuantity = Math.max(1, Number(product.packSize) || 1);
 
     if (existingItem) {
