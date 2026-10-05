@@ -37,6 +37,16 @@ const TrackingEventSchema = new mongoose.Schema(
 );
 
 // Where the customer came from (UTM tags / Meta click id), captured on landing.
+const MetaMatchSchema = new mongoose.Schema(
+  {
+    fbp: { type: String, default: "" },
+    fbc: { type: String, default: "" },
+    clientIp: { type: String, default: "" },
+    userAgent: { type: String, default: "" },
+  },
+  { _id: false }
+);
+
 const AttributionSchema = new mongoose.Schema(
   {
     utmSource: { type: String, default: "" },
@@ -121,6 +131,10 @@ const OrderSchema = new mongoose.Schema(
     needsAttention: { type: Boolean, default: false },
     attentionReason: { type: String, default: "" },
     attribution: { type: AttributionSchema, default: null },
+    // The customer's Meta matching details from their own checkout request, so a
+    // server Purchase sent later (Razorpay webhook or redirect callback, which
+    // carry no _fbp cookie) can still be matched. See lib/meta-capi.ts.
+    metaMatch: { type: MetaMatchSchema, default: null },
     metaPurchaseSentAt: { type: Date, default: null },
   },
   { timestamps: true }
