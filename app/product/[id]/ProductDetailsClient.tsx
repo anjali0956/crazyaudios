@@ -155,6 +155,9 @@ export default function ProductDetails() {
               emblemSize={102}
               className="rounded-lg object-contain"
               emblemClassName="top-3 right-3"
+              // The main photo is the page's largest element: load it first, never lazily.
+              loading="eager"
+              fetchPriority="high"
             />
 
             {galleryImages.length > 1 ? (

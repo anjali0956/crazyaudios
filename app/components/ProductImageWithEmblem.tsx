@@ -10,6 +10,10 @@ type ProductImageWithEmblemProps = {
   emblemSize?: number;
   className?: string;
   emblemClassName?: string;
+  /** Main photo only. Unset = Next's default (lazy), as on every card. */
+  loading?: "eager" | "lazy";
+  /** Main photo only. Unset = no fetchpriority attribute. */
+  fetchPriority?: "high" | "low" | "auto";
 };
 
 export default function ProductImageWithEmblem({
@@ -20,6 +24,8 @@ export default function ProductImageWithEmblem({
   emblemSize = 44,
   className = "object-contain",
   emblemClassName = "",
+  loading,
+  fetchPriority,
 }: ProductImageWithEmblemProps) {
   const normalizedSrc = String(src || "").trim();
   const normalizedEmblemSrc = String(emblemSrc || "").trim();
@@ -27,7 +33,14 @@ export default function ProductImageWithEmblem({
   return (
     <>
       {normalizedSrc ? (
-        <Image src={normalizedSrc} alt={alt} fill className={className} />
+        <Image
+          src={normalizedSrc}
+          alt={alt}
+          fill
+          className={className}
+          loading={loading}
+          fetchPriority={fetchPriority}
+        />
       ) : (
         <div className="absolute inset-0 flex items-center justify-center rounded-lg bg-gray-100 text-center text-xs font-medium text-gray-400">
           Image unavailable
