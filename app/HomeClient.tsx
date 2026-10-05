@@ -9,7 +9,8 @@ import ProductImageWithEmblem from "./components/ProductImageWithEmblem";
 import formatCategoryName from "@/lib/formatCategoryName";
 import { getDisplayPrice } from "@/lib/order-utils";
 import shouldShowCaEmblem from "@/lib/shouldShowCaEmblem";
-import { trackPixelEvent } from "@/lib/meta-pixel";
+import { matchesProductName } from "@/lib/product-search";
+import { addProductToCart, addToCartMessage, isOutOfStock, packStep } from "@/lib/add-to-cart";
 
 const CATEGORY_IMAGE_OVERRIDES: Record<string, string> = {
   brainsaudios: "/brains-logo.jpg",
@@ -56,10 +57,33 @@ type Product = {
   flashSale?: boolean;
   discountPercentage?: number;
   stock?: number;
+  createdAt?: string;
 };
+
+// When no product is marked as featured, the grid shows this many of the
+// newest in-stock products instead.
+const NEWEST_PRODUCTS_FALLBACK = 12;
+
+// Creation time from createdAt, or from the Mongo ObjectId if it is missing.
+function createdTime(product: Product) {
+  const fromField = Date.parse(String(product.createdAt || ""));
+  if (!Number.isNaN(fromField)) return fromField;
+  const fromId = parseInt(String(product._id || "").slice(0, 8), 16);
+  return Number.isNaN(fromId) ? 0 : fromId * 1000;
+}
+
+function newestInStock(products: Product[], count: number) {
+  return products
+    .map((product, index) => ({ product, index, created: createdTime(product) }))
+    .filter(({ product }) => typeof product.stock !== "number" || product.stock > 0)
+    .sort((a, b) => b.created - a.created || a.index - b.index)
+    .slice(0, count)
+    .map(({ product }) => product);
+}
 
 export default function Home() {
   const [products, setProducts] = useState<Product[]>([]);
+  const [productsLoaded, setProductsLoaded] = useState(false);
   const { setSelectedCategory } = useCategory();
 
   const [heroSlide, setHeroSlide] = useState(0);
@@ -85,9 +109,11 @@ export default function Home() {
       .get("/api/products")
       .then((res) => {
         setProducts(Array.isArray(res.data) ? res.data : []);
+        setProductsLoaded(true);
       })
       .catch(() => {
         setProducts([]);
+        setProductsLoaded(true);
       });
 
     axios
@@ -112,10 +138,11 @@ export default function Home() {
       });
   }, [setSelectedCategory]);
 
-  const featuredProducts = useMemo(
-    () => products.filter((product) => Boolean(product.featured)),
-    [products]
-  );
+  // Featured products, or the newest in-stock products if none are featured.
+  const featuredProducts = useMemo(() => {
+    const featured = products.filter((product) => Boolean(product.featured));
+    return featured.length > 0 ? featured : newestInStock(products, NEWEST_PRODUCTS_FALLBACK);
+  }, [products]);
 
   const categoryCards = useMemo(() => {
     const categories = new Map<string, { category: string; image: string }>();
@@ -177,7 +204,7 @@ export default function Home() {
   }, []);
 
   const filteredFeaturedProducts = featuredProducts.filter((product) => {
-    const matchesSearch = product.name?.toLowerCase().includes(search.toLowerCase());
+    const matchesSearch = matchesProductName(product.name, search);
     const displayPrice = getDisplayPrice(
       product.price,
       product.discountPercentage || 0,
@@ -193,48 +220,18 @@ export default function Home() {
     return matchesSearch && matchesPrice;
   });
 
+  // Same cart item, quantity rules (whole packs, never more than stock) and
+  // Pixel AddToCart as the product and category pages (lib/add-to-cart).
   const addToCartFromHomepage = (product: Product, event: MouseEvent<HTMLButtonElement>) => {
     event.preventDefault();
     event.stopPropagation();
 
-    const storedCart = JSON.parse(browserStorage.get("cart") || "[]");
-    const { inclusiveFinalPrice, inclusiveBasePrice } = getDisplayPrice(
-      product.price,
-      product.discountPercentage || 0,
-      Boolean(product.flashSale)
-    );
-
-    const existingItem = storedCart.find((item: any) => item._id === product._id);
-    const packQuantity = Math.max(1, Number(product.packSize) || 1);
-
-    if (existingItem) {
-      existingItem.quantity = Math.max(packQuantity, Number(existingItem.quantity || packQuantity)) + packQuantity;
-      existingItem.price = inclusiveFinalPrice;
-      existingItem.originalPrice = inclusiveBasePrice;
-      existingItem.flashSale = Boolean(product.flashSale);
-      existingItem.discountPercentage = product.discountPercentage || 0;
-      existingItem.packSize = product.packSize || null;
-    } else {
-      storedCart.push({
-        ...product,
-        price: inclusiveFinalPrice,
-        originalPrice: inclusiveBasePrice,
-        flashSale: Boolean(product.flashSale),
-        discountPercentage: product.discountPercentage || 0,
-        quantity: packQuantity,
-      });
+    if (isOutOfStock(product)) {
+      alert("This product is out of stock.");
+      return;
     }
-
-    browserStorage.set("cart", JSON.stringify(storedCart));
-    trackPixelEvent("AddToCart", {
-      content_ids: [product._id],
-      content_type: "product",
-      content_name: product.name,
-      contents: [{ id: product._id, quantity: packQuantity, item_price: inclusiveFinalPrice }],
-      value: Number((inclusiveFinalPrice * packQuantity).toFixed(2)),
-      currency: "INR",
-    });
-    alert("Added to cart!");
+    const result = addProductToCart(product, packStep(product));
+    alert(addToCartMessage(result));
   };
 
   return (
@@ -407,9 +404,10 @@ export default function Home() {
           })}
         </div>
 
-        {filteredFeaturedProducts.length === 0 && (
+        {/* Only once products have loaded, only when a filter hid them all, and never admin instructions. */}
+        {productsLoaded && featuredProducts.length > 0 && filteredFeaturedProducts.length === 0 && (
           <p className="text-center text-gray-600 mt-8">
-            No featured products found for this filter. Mark products as featured in Admin.
+            No featured products found for this filter.
           </p>
         )}
       </section>

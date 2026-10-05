@@ -1,6 +1,6 @@
 ﻿"use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState, useSyncExternalStore } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import {
@@ -18,20 +18,174 @@ type CartItem = {
   image?: string;
   flashSale?: boolean;
   originalPrice?: number;
+  discountPercentage?: number;
+  stock?: number;
 };
 
-export default function CartPage() {
-  const [cart, setCart] = useState<CartItem[]>([]);
-  const [couponCode, setCouponCode] = useState("");
+// One entry of POST /api/cart/validate.
+type CheckedProduct = {
+  productId: string;
+  found: boolean;
+  flashSale?: boolean;
+  discountPercentage?: number;
+  unitPrice?: number;
+  originalUnitPrice?: number;
+  stock?: number;
+  packSize?: number | null;
+};
 
+type RemovedItem = { name: string; reason: "out of stock" | "no longer available" };
+
+// The cart lives in localStorage ("cart"), in the shape the product pages
+// write. It is read as an external store, so the first render matches the
+// server's (empty) one and changes made here re-render the page.
+const CART_KEY = "cart";
+const CART_EVENT = "cart:updated";
+
+function subscribeToCart(onChange: () => void) {
+  window.addEventListener(CART_EVENT, onChange);
+  return () => window.removeEventListener(CART_EVENT, onChange);
+}
+
+function readStoredCart() {
+  try {
+    return window.localStorage.getItem(CART_KEY) || "[]";
+  } catch {
+    return "[]";
+  }
+}
+
+function parseCart(raw: string | null): CartItem[] {
+  if (!raw) return [];
+  try {
+    const data: unknown = JSON.parse(raw);
+    return Array.isArray(data) ? data.filter((item) => item && typeof item === "object") : [];
+  } catch {
+    return [];
+  }
+}
+
+function saveCart(items: CartItem[]) {
+  localStorage.setItem(CART_KEY, JSON.stringify(items));
+  window.dispatchEvent(new Event(CART_EVENT));
+}
+
+const packStep = (item: { packSize?: number | null }) => Math.max(1, Number(item.packSize) || 1);
+
+// The most a customer can order: the stock left, in whole packs. No limit
+// when the stock isn't known (the server still checks it).
+function maxQuantity(item: { stock?: number; packSize?: number | null }) {
+  if (typeof item.stock !== "number" || !Number.isFinite(item.stock)) return Number.POSITIVE_INFINITY;
+  const step = packStep(item);
+  return Math.max(0, Math.floor(item.stock / step) * step);
+}
+
+// Brings the stored cart in line with the live catalogue: today's prices,
+// quantities capped at the stock left (whole packs), and products that are
+// gone or sold out taken out. Items the check didn't cover stay as they are.
+function reconcileCart(items: CartItem[], products: CheckedProduct[]) {
+  const live = new Map(products.map((product) => [String(product.productId), product]));
+  const next: CartItem[] = [];
+  const removed: RemovedItem[] = [];
+  let updated = false;
+
+  for (const item of items) {
+    const product = live.get(String(item._id));
+    if (!product) {
+      next.push(item);
+      continue;
+    }
+    if (!product.found) {
+      removed.push({ name: item.name, reason: "no longer available" });
+      continue;
+    }
+
+    const packSize = product.packSize ?? null;
+    const step = packStep({ packSize });
+    const stock = Math.max(0, Math.floor(Number(product.stock) || 0));
+    const maxQuantity = Math.floor(stock / step) * step;
+    if (maxQuantity < step) {
+      removed.push({ name: item.name, reason: "out of stock" });
+      continue;
+    }
+
+    const unitPrice = Number(product.unitPrice);
+    const originalUnitPrice = Number(product.originalUnitPrice);
+    const price = Number.isFinite(unitPrice) ? unitPrice : item.price;
+    const quantity = Math.min(Math.max(Number(item.quantity) || step, step), maxQuantity);
+    const fresh: CartItem = {
+      ...item,
+      price,
+      originalPrice: Number.isFinite(originalUnitPrice) ? originalUnitPrice : item.originalPrice,
+      flashSale: Boolean(product.flashSale),
+      discountPercentage: Number(product.discountPercentage) || 0,
+      packSize,
+      stock,
+      quantity,
+    };
+    if (
+      Math.abs(price - Number(item.price)) > 0.004 ||
+      quantity !== item.quantity ||
+      packStep(fresh) !== packStep(item)
+    ) {
+      updated = true;
+    }
+    next.push(fresh);
+  }
+
+  return { items: next, removed, updated };
+}
+
+function describeCartChanges(updated: boolean, removed: RemovedItem[]) {
+  const gone = removed.map((item) => `${item.name} (${item.reason})`).join(", ");
+  if (!gone) return updated ? "We updated your cart with the latest prices and stock." : "";
+  return updated
+    ? `We updated your cart with the latest prices and stock. Removed: ${gone}.`
+    : `Removed from your cart: ${gone}.`;
+}
+
+export default function CartPage() {
+  // null on the server and until the browser cart has been read.
+  const storedCart = useSyncExternalStore(subscribeToCart, readStoredCart, () => null);
+  const cart = useMemo(() => parseCart(storedCart), [storedCart]);
+  const cartLoaded = storedCart !== null;
+  const [couponCode, setCouponCode] = useState("");
+  const [cartNotice, setCartNotice] = useState("");
+
+  // Once the cart has loaded, re-check its prices and stock with the server.
   useEffect(() => {
-    const storedCart = JSON.parse(localStorage.getItem("cart") || "[]") as CartItem[];
-    setCart(storedCart);
-  }, []);
+    if (!cartLoaded) return;
+    const items = parseCart(readStoredCart());
+    if (!items.length) return;
+
+    const controller = new AbortController();
+    fetch("/api/cart/validate", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({
+        items: items.map((item) => ({ productId: item._id, quantity: item.quantity })),
+      }),
+      signal: controller.signal,
+    })
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data: { products?: CheckedProduct[] } | null) => {
+        const products = data?.products;
+        if (controller.signal.aborted || !Array.isArray(products)) return;
+        // Apply to the cart as it is now (it may have changed meanwhile).
+        const current = parseCart(readStoredCart());
+        const result = reconcileCart(current, products);
+        if (JSON.stringify(result.items) !== JSON.stringify(current)) saveCart(result.items);
+        setCartNotice(describeCartChanges(result.updated, result.removed));
+      })
+      .catch(() => {
+        // Offline or the check failed: keep the cart as it is. Prices and
+        // stock are checked again when the order is placed.
+      });
+    return () => controller.abort();
+  }, [cartLoaded]);
 
   const updateCart = (updatedCart: CartItem[]) => {
-    setCart(updatedCart);
-    localStorage.setItem("cart", JSON.stringify(updatedCart));
+    saveCart(updatedCart);
   };
 
   const removeItem = (id: string) => {
@@ -40,11 +194,12 @@ export default function CartPage() {
   };
 
   const increaseQty = (id: string) => {
-    const updatedCart = cart.map((item) =>
-      item._id === id
-        ? { ...item, quantity: item.quantity + Math.max(1, Number(item.packSize) || 1) }
-        : item
-    );
+    const updatedCart = cart.map((item) => {
+      if (item._id !== id) return item;
+      const quantity = item.quantity + packStep(item);
+      // Never above the stock left.
+      return quantity <= maxQuantity(item) ? { ...item, quantity } : item;
+    });
     updateCart(updatedCart);
   };
 
@@ -69,7 +224,8 @@ export default function CartPage() {
       if (item._id !== id) return item;
       const step = Math.max(1, Number(item.packSize) || 1);
       const safeQty = Math.max(step, Math.ceil(Math.floor(parsed) / step) * step);
-      return { ...item, quantity: safeQty };
+      // Between one pack and the stock left.
+      return { ...item, quantity: Math.max(step, Math.min(safeQty, maxQuantity(item))) };
     });
     updateCart(updatedCart);
   };
@@ -98,6 +254,12 @@ export default function CartPage() {
         <div className="mb-6 rounded-sm bg-[#352f8f] px-4 py-4 text-sm text-white sm:mb-8 sm:px-6 sm:text-base">
           Complete your order and earn points for discounts on future purchases
         </div>
+
+        {cartNotice ? (
+          <p role="status" className="mb-4 text-sm font-medium text-orange-600">
+            {cartNotice}
+          </p>
+        ) : null}
 
         <section className="overflow-hidden rounded-sm border border-gray-300 bg-white">
           <div className="hidden grid-cols-12 items-center border-b border-gray-300 bg-gray-50 px-5 py-4 text-2xl text-gray-500 md:grid">
@@ -150,6 +312,7 @@ export default function CartPage() {
                     <div className="inline-flex items-center rounded-md border border-gray-300">
                       <button
                         onClick={() => decreaseQty(item._id)}
+                        disabled={item.quantity <= packStep(item)}
                         className="h-10 w-10 text-xl text-gray-600 hover:bg-gray-100"
                         aria-label={`Decrease quantity for ${item.name}`}
                       >
@@ -159,12 +322,14 @@ export default function CartPage() {
                         type="number"
                         min={Math.max(1, Number(item.packSize) || 1)}
                         step={Math.max(1, Number(item.packSize) || 1)}
+                        max={Number.isFinite(maxQuantity(item)) ? maxQuantity(item) : undefined}
                         value={item.quantity}
                         onChange={(e) => handleQtyInput(item._id, e.target.value)}
                         className="h-10 w-14 border-x border-gray-300 text-center outline-none"
                       />
                       <button
                         onClick={() => increaseQty(item._id)}
+                        disabled={item.quantity + packStep(item) > maxQuantity(item)}
                         className="h-10 w-10 text-xl text-gray-600 hover:bg-gray-100"
                         aria-label={`Increase quantity for ${item.name}`}
                       >
