@@ -33,10 +33,13 @@ const INR_PAISE = new Intl.NumberFormat("en-IN", {
 export function formatINR(value: number) {
   const n = Number(value) || 0;
   const paise = roundHalfUp(n, 2);
-  if (Math.abs(paise) < 10 && !Number.isInteger(paise)) {
+  // Whole rupees when the amount is whole; otherwise the exact paise, so what we
+  // show always equals what Razorpay charges (a flash-sale ₹1,112.50 is never
+  // shown as ₹1,113 while ₹1,112.50 is collected).
+  if (!Number.isInteger(paise)) {
     return INR_PAISE.format(paise);
   }
-  return INR_WHOLE.format(roundHalfUp(n, 0));
+  return INR_WHOLE.format(paise);
 }
 
 /** Plain number with Indian grouping: 125000 -> "1,25,000". */
