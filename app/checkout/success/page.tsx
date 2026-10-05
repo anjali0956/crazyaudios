@@ -17,6 +17,7 @@ type SuccessOrder = {
   status: string;
   paymentMethod?: string;
   totalAmount: number;
+  subtotal?: number;
   customerEmail?: string;
   stockDeducted?: boolean;
 };
@@ -99,7 +100,7 @@ export default async function CheckoutSuccessPage({
 
   return (
     <main className="min-h-screen bg-gray-100 px-4 py-10 text-black sm:px-6 lg:px-10">
-      {isConfirmed ? <PurchaseTracker orderId={orderId} /> : null}
+      {isConfirmed ? <PurchaseTracker orderId={orderId} value={Number(order.subtotal ?? order.totalAmount) || 0} /> : null}
       <div className="mx-auto max-w-2xl rounded-2xl bg-white p-8 shadow">
         <p
           className={`mb-3 text-sm font-semibold uppercase tracking-wide ${
