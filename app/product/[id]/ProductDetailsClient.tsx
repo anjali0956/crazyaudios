@@ -9,6 +9,7 @@ import ProductImageWithEmblem from "@/app/components/ProductImageWithEmblem";
 import { getDisplayPrice } from "@/lib/order-utils";
 import shouldShowCaEmblem from "@/lib/shouldShowCaEmblem";
 import { trackPixelEvent } from "@/lib/meta-pixel";
+import { addProductToCart, addToCartMessage, isOutOfStock, maxCartQuantity } from "@/lib/add-to-cart";
 import { absoluteUrl } from "@/lib/site";
 import { WhatsAppProductButton } from "@/app/components/WhatsApp";
 import {
@@ -48,16 +49,13 @@ export default function ProductDetails() {
         setProduct(productRes.data);
         setAllProducts(productsRes.data || []);
         setCurrentImageIndex(0);
+        // Start at one unit, or one pack for pack-only products.
+        setQuantity(Math.max(1, Number(productRes.data?.packSize) || 1));
       })
       .catch((err) => {
         console.error("Error fetching product:", err);
       });
   }, [id]);
-
-  useEffect(() => {
-    if (!product) return;
-    setQuantity(Math.max(1, Number(product.packSize) || 1));
-  }, [product]);
 
   useEffect(() => {
     if (!product) return;
@@ -124,41 +122,15 @@ export default function ProductDetails() {
       : originalDisplayPrice;
   const packDisplayPrice =
     packSize > 1 ? Number((activeDisplayPrice * packSize).toFixed(2)) : null;
+  // Quantity stays in whole packs and never above stock.
+  const maxQuantity = maxCartQuantity(product ?? {});
+  const outOfStock = isOutOfStock(product ?? {});
 
   const addToCart = () => {
-    if (!product) return;
-    const existingCart = JSON.parse(localStorage.getItem("cart") || "[]");
-
-    const existingItem = existingCart.find((item: any) => item._id === product._id);
-
-    if (existingItem) {
-      existingItem.quantity += quantity;
-      existingItem.price = finalPrice;
-      existingItem.originalPrice = originalDisplayPrice;
-      existingItem.flashSale = Boolean(product.flashSale);
-      existingItem.discountPercentage = product.discountPercentage || 0;
-      existingItem.packSize = product.packSize || null;
-    } else {
-      existingCart.push({
-        ...product,
-        price: finalPrice,
-        originalPrice: originalDisplayPrice,
-        flashSale: Boolean(product.flashSale),
-        discountPercentage: product.discountPercentage || 0,
-        quantity,
-      });
-    }
-
-    localStorage.setItem("cart", JSON.stringify(existingCart));
-    trackPixelEvent("AddToCart", {
-      content_ids: [product._id],
-      content_type: "product",
-      content_name: product.name,
-      contents: [{ id: product._id, quantity, item_price: finalPrice }],
-      value: Number((finalPrice * quantity).toFixed(2)),
-      currency: "INR",
-    });
-    alert("Added to cart!");
+    if (!product || outOfStock) return;
+    // Caps this product's total in the cart at its stock.
+    const result = addProductToCart(product, quantity);
+    alert(addToCartMessage(result));
   };
 
   if (!product) return <p className="p-4 sm:p-6 lg:p-10">Loading...</p>;
@@ -321,8 +293,11 @@ export default function ProductDetails() {
 
             <button
               type="button"
-              onClick={() => setQuantity((prev) => prev + quantityStep)}
+              onClick={() =>
+                setQuantity((prev) => (prev + quantityStep <= maxQuantity ? prev + quantityStep : prev))
+              }
               className="min-h-11 touch-manipulation select-none rounded bg-gray-300 px-4 py-2 text-lg leading-none"
+              disabled={quantity + quantityStep > maxQuantity}
             >
               +
             </button>
@@ -331,6 +306,7 @@ export default function ProductDetails() {
           <button
             type="button"
             onClick={addToCart}
+            disabled={outOfStock}
             className="relative z-30 mb-6 inline-flex min-h-12 w-full touch-manipulation select-none items-center justify-center rounded-lg bg-black px-6 py-3 text-center text-base font-medium text-white transition hover:bg-gray-800 active:scale-[0.99] sm:w-auto"
             style={{ WebkitTapHighlightColor: "transparent" }}
           >
