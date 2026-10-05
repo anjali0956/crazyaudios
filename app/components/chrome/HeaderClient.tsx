@@ -9,6 +9,7 @@ import { IconBag, IconClose, IconMenu, IconSearch, IconUser } from "@/app/compon
 import { CountBadge, IconButton, IconButtonLink } from "@/app/components/ui/IconButton";
 import { LogoMark } from "@/app/components/ui/LogoMark";
 import { Sheet } from "@/app/components/ui/Sheet";
+import { Skeleton } from "@/app/components/ui/Skeleton";
 import { cx } from "@/app/components/ui/cx";
 import { lazyModule, onIdleAfterLoad, useLazyModule } from "./lazy-module";
 import type { NavDepartment } from "./nav-types";
@@ -297,6 +298,41 @@ export function HeaderSearchField({ className }: { className?: string }) {
 
 // ------------------------------------------------------------ sheets
 
+// Placeholders for a sheet opened before its content has loaded (a very early
+// tap on a slow phone; normally the code is prefetched once the page is idle).
+const MENU_ROW_WIDTHS = ["w-2/5", "w-1/3", "w-1/2", "w-1/4", "w-2/5", "w-1/3", "w-1/2"];
+
+function MenuBodySkeleton() {
+  return (
+    <div aria-hidden="true">
+      <div className="px-4 pt-3 lg:px-6">
+        <div className="h-12 rounded-card border border-line-strong bg-paper" />
+      </div>
+      <Skeleton className="mx-4 mb-3 mt-7 h-3 w-1/3 lg:mx-6" />
+      <ul className="border-t border-line">
+        {MENU_ROW_WIDTHS.map((width, index) => (
+          <li key={index} className="flex min-h-12 items-center border-b border-line px-4 lg:px-6">
+            <Skeleton className={cx("h-3.5", width)} />
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+
+function SearchResultsSkeleton() {
+  return (
+    <div aria-hidden="true" className="px-2 py-3">
+      <Skeleton className="h-3 w-1/4" />
+      <div className="mt-3 flex flex-wrap gap-2">
+        {[0, 1, 2, 3].map((chip) => (
+          <div key={chip} className="h-10 w-20 rounded-full border border-line" />
+        ))}
+      </div>
+    </div>
+  );
+}
+
 function SearchSheet({
   open,
   onClose,
@@ -392,7 +428,9 @@ function SearchSheet({
               inputRef.current?.focus();
             }}
           />
-        ) : null}
+        ) : (
+          <SearchResultsSkeleton />
+        )}
       </div>
     </Sheet>
   );
@@ -440,7 +478,7 @@ function MenuSheet({
         </div>
       }
     >
-      {MenuBody ? <MenuBody departments={departments} countsLive={countsLive} onClose={onClose} onSearch={onSearch} /> : null}
+      {MenuBody ? <MenuBody departments={departments} countsLive={countsLive} onClose={onClose} onSearch={onSearch} /> : <MenuBodySkeleton />}
     </Sheet>
   );
 }
