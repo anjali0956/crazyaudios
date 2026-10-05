@@ -17,7 +17,7 @@ import { QuantityStepper } from "@/app/components/ui/QuantityStepper";
 import { Skeleton } from "@/app/components/ui/Skeleton";
 import { StockStatus, stockLevel } from "@/app/components/ui/StockStatus";
 import { useToast } from "@/app/components/ui/Toast";
-import { useBottomBar } from "@/app/components/ui/useBottomBar";
+import { useBottomBar, useReservedBottomSpace } from "@/app/components/ui/useBottomBar";
 import { displayName } from "@/lib/display";
 import { formatINR, pluralize } from "@/lib/format";
 import { extractInclusiveTaxAmount } from "@/lib/order-utils";
@@ -35,6 +35,8 @@ export function CartView({ emptyState }: { emptyState: ReactNode }) {
   const hasItems = ready && items.length > 0;
   const showBar = hasItems && compact && !checkoutVisible;
   useBottomBar(showBar, BAR_HEIGHT);
+  // The bar shows again at the footer (the in-page Checkout is above): keep the footer's links clear of it.
+  useReservedBottomSpace(hasItems && compact, BAR_HEIGHT);
 
   const handleRemove = (item: CartItem, index: number) => {
     const name = displayName(item.name);

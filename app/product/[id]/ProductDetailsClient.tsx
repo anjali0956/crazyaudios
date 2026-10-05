@@ -10,7 +10,7 @@ import { DeliveryCheck } from "@/app/components/product/DeliveryCheck";
 import { STICKY_BAR_HEIGHT, StickyBuyBar } from "@/app/components/product/StickyBuyBar";
 import type { PdpBuyProduct } from "@/app/components/product/types";
 import { QuantityStepper } from "@/app/components/ui/QuantityStepper";
-import { useBottomBar } from "@/app/components/ui/useBottomBar";
+import { useBottomBar, useReservedBottomSpace } from "@/app/components/ui/useBottomBar";
 import { trackPixelEvent } from "@/lib/meta-pixel";
 import { getDisplayPrice } from "@/lib/order-utils";
 
@@ -106,16 +106,10 @@ export default function ProductDetailsClient({
   useBottomBar(mobile, barVisible ? STICKY_BAR_HEIGHT : 0);
 
   // Keep the end of the page (footer links) clear of the bar. Reserved for as
-  // long as the page is on a phone, so the page height never jumps while scrolling.
-  useEffect(() => {
-    if (!mobile) return;
-    const body = document.body;
-    const previous = body.style.paddingBottom;
-    body.style.paddingBottom = `calc(${STICKY_BAR_HEIGHT}px + env(safe-area-inset-bottom, 0px))`;
-    return () => {
-      body.style.paddingBottom = previous;
-    };
-  }, [mobile]);
+  // long as the page is on a phone, so the page height never jumps while scrolling;
+  // the reserved strip continues the footer's night bottom bar (it was a paper-
+  // coloured band under the footer when it padded <body>).
+  useReservedBottomSpace(mobile, STICKY_BAR_HEIGHT);
 
   return (
     <>
