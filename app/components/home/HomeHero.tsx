@@ -12,13 +12,13 @@ import { DesktopOnly } from "./DesktopOnly";
 // Spec §11.2 / §14 (final): the owner's headline, verbatim, and the scoped sub.
 export const HERO_TITLE = "Original parts, directly imported.";
 export const HERO_SUB =
-  "Amplifier ICs, transistors, op-amps, MOSFETs and capacitors, directly imported from authorised international sources — with a GST invoice and same-day dispatch on most orders.";
+  "Amplifier ICs, transistors, op-amps, MOSFETs and capacitors, directly imported from authorised international sources. Prices include GST, and most orders ship the same day.";
 
 type TrustItem = { icon: ComponentType<IconProps>; label: string; detail: string };
 
 const TRUST: TrustItem[] = [
   { icon: IconShield, label: "Directly imported", detail: "Every batch checked" },
-  { icon: IconReceipt, label: "GST invoice", detail: "With every order" },
+  { icon: IconReceipt, label: "Invoice with GST", detail: "With every order" },
   { icon: IconTruck, label: "Same-day dispatch", detail: "Mon–Sat before 2 PM, most orders" },
   COD_ENABLED
     ? { icon: IconCash, label: `COD up to ${formatINR(COD_MAX_ORDER_VALUE)}`, detail: "Or UPI, cards, netbanking" }

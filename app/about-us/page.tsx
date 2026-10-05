@@ -23,7 +23,7 @@ const SOURCING_STATEMENT =
 const PROMISES = [
   { icon: <IconShield size={20} />, title: "Directly imported", text: "ICs, transistors, capacitors and other components" },
   { icon: <IconCheckCircle size={20} />, title: "Every batch checked", text: "Quality-checked before it goes on sale" },
-  { icon: <IconReceipt size={20} />, title: "GST invoice", text: "With every order" },
+  { icon: <IconReceipt size={20} />, title: "Invoice with GST", text: "With every order" },
   { icon: <IconTruck size={20} />, title: "Same-day dispatch", text: "Most orders placed before 2 PM, Mon–Sat" },
 ];
 

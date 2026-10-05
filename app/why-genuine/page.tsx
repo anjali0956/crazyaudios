@@ -32,7 +32,7 @@ export const revalidate = 60;
 
 const TITLE = "Why genuine parts cost more, and how to spot fakes";
 const DESCRIPTION =
-  "Why our amplifier ICs, transistors and capacitors cost more than cheap listings of the same part numbers: originals, directly imported, every batch checked, GST invoice. And how to spot a counterfeit.";
+  "Why our amplifier ICs, transistors and capacitors cost more than cheap listings of the same part numbers: originals, directly imported, every batch checked, invoice with GST. And how to spot a counterfeit.";
 
 export const metadata: Metadata = {
   title: TITLE,
@@ -166,8 +166,8 @@ const PROMISES = [
   },
   {
     icon: <IconReceipt size={22} />,
-    title: "GST invoice with every order",
-    text: "A GST invoice for every order, which you can download from your order confirmation.",
+    title: "An invoice with every order",
+    text: "Every order comes with an invoice showing the GST included in your price, which you can download from your order confirmation.",
   },
   {
     icon: <IconWhatsApp size={22} />,
@@ -195,7 +195,7 @@ const QUESTIONS: FaqEntry[] = [
   },
   {
     id: "gst-invoice",
-    question: "Do I get a GST invoice?",
+    question: "Do I get an invoice?",
     answer:
       "Yes, with every order. You can download it from your order confirmation page, from [Track your order](/track-your-order), or from [My orders](/orders) if you were signed in when you ordered.",
   },
@@ -323,7 +323,7 @@ export default async function WhyGenuinePage() {
               </li>
               <li className="flex items-center gap-2.5">
                 <IconReceipt size={18} className="shrink-0 text-signal" />
-                GST invoice with every order
+                Invoice with every order
               </li>
             </ul>
           </div>

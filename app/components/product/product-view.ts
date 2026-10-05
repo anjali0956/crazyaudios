@@ -65,7 +65,7 @@ export function titleMaker(product: CatalogProduct, all: CatalogProduct[]) {
  */
 export function pdpTrustLine(product: CatalogProduct, brand: string | null) {
   if (categoryInfo(product.category).group === "speaker-drivers" && brand !== "Peerless by Tymphany") {
-    return "Original · GST invoice";
+    return "Original · Invoice with GST";
   }
   return trustLine(product.category);
 }
@@ -187,7 +187,7 @@ export function metaDescription(product: CatalogProduct, brand: string | null) {
   const pack = product.minQty > 1 ? ` for a pack of ${product.minQty}` : "";
   const stock = product.stock > 0 ? "In stock" : "Out of stock";
   const pay = isCodAllowed(product.sellPrice) ? "Cash on Delivery available" : "Pay by UPI, card or netbanking";
-  const facts = `${formatINR(product.sellPrice)}${pack} incl. GST · ${stock} · GST invoice · ${pay}.`;
+  const facts = `${formatINR(product.sellPrice)}${pack} incl. GST · ${stock} · invoice with every order · ${pay}.`;
   const first = clip((highlightsOf(product)[0] ?? "").replace(/[.\s]+$/, ""), 120);
   const tail = first && !first.endsWith("…") ? `${first}.` : first;
   return [lead, facts, tail].filter(Boolean).join(" ");

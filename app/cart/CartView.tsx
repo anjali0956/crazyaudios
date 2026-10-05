@@ -143,7 +143,7 @@ export function CartView({ emptyState }: { emptyState: ReactNode }) {
               ) : null}
               <li className="flex gap-2">
                 <IconReceipt size={16} className="mt-px shrink-0 text-muted" />
-                <span>GST invoice with every order</span>
+                <span>Invoice with GST for every order</span>
               </li>
             </ul>
           </div>

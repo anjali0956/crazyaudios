@@ -11,7 +11,7 @@ import { DEFAULT_OPEN_GRAPH } from "@/lib/site";
 import { COD_ENABLED, COD_MAX_ORDER_VALUE, FREE_SHIPPING_THRESHOLD } from "@/lib/shipping-policy";
 
 const DESCRIPTION =
-  "Answers about original parts, Cash on Delivery, free shipping, same-day dispatch, GST invoices and tracking your CrazyAudios order.";
+  "Answers about original parts, Cash on Delivery, free shipping, same-day dispatch, invoices and tracking your CrazyAudios order.";
 
 export const metadata: Metadata = {
   title: "FAQ",
@@ -77,7 +77,7 @@ const GROUPS: Array<{ id: string; title: string; items: FaqEntry[] }> = [
       },
       {
         id: "gst-invoice",
-        question: "Do I get a GST invoice?",
+        question: "Do I get an invoice?",
         answer:
           "Yes, with every order, and our prices include GST. You can download the invoice from your order confirmation page, from [Track your order](/track-your-order), or from [My orders](/orders) if you were signed in when you ordered.",
       },

@@ -209,12 +209,12 @@ export function isDirectlyImported(rawCategory: unknown) {
 
 /**
  * The one-line sourcing claim for a category's trust strip / product badge:
- * directly imported categories "Original · Directly imported · GST invoice",
- * speaker drivers "Genuine Peerless by Tymphany · GST invoice",
- * everything else (BrainsAudios modules, unknown) "Original · GST invoice".
+ * directly imported categories "Original · Directly imported · Invoice with GST",
+ * speaker drivers "Genuine Peerless by Tymphany · Invoice with GST",
+ * everything else (BrainsAudios modules, unknown) "Original · Invoice with GST".
  */
 export function trustLine(rawCategory: unknown) {
-  if (isDirectlyImported(rawCategory)) return "Original · Directly imported · GST invoice";
-  if (categoryInfo(rawCategory).group === "speaker-drivers") return "Genuine Peerless by Tymphany · GST invoice";
-  return "Original · GST invoice";
+  if (isDirectlyImported(rawCategory)) return "Original · Directly imported · Invoice with GST";
+  if (categoryInfo(rawCategory).group === "speaker-drivers") return "Genuine Peerless by Tymphany · Invoice with GST";
+  return "Original · Invoice with GST";
 }
