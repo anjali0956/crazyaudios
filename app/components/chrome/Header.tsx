@@ -4,6 +4,7 @@ import { Logo } from "@/app/components/ui/Logo";
 import { ANNOUNCEMENT } from "./links";
 import {
   AccountButton,
+  AdminButton,
   CartButton,
   ChromeProvider,
   HeaderSearchField,
@@ -45,6 +46,7 @@ export function Header({ departments, countsLive }: { departments: NavDepartment
           </Link>
           <PrimaryNav items={PRIMARY_NAV} className="ml-4 hidden lg:block xl:ml-6" />
           <div className="min-w-2 flex-1" />
+          <AdminButton />
           <HeaderSearchField className="mr-2 hidden w-[clamp(220px,22vw,320px)] xl:block" />
           <div className="flex xl:hidden">
             <SearchButton />
