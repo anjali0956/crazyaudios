@@ -550,6 +550,7 @@ export default function CheckoutPage() {
             <input
               type="text"
               placeholder="Full Name"
+              autoComplete="name"
               value={shipping.name}
               onChange={(e) => setShipping({ ...shipping, name: e.target.value })}
               className="w-full min-h-11 rounded border p-2"
@@ -559,6 +560,7 @@ export default function CheckoutPage() {
             <input
               type="email"
               placeholder="Email Address"
+              autoComplete="email"
               value={shipping.email}
               onChange={(e) => setShipping({ ...shipping, email: e.target.value })}
               className="w-full min-h-11 rounded border p-2"
@@ -568,6 +570,8 @@ export default function CheckoutPage() {
             <input
               type="tel"
               placeholder="Phone Number"
+              inputMode="numeric"
+              autoComplete="tel"
               value={shipping.phone}
               onChange={(e) => setShipping({ ...shipping, phone: e.target.value })}
               className="w-full min-h-11 rounded border p-2"
@@ -576,6 +580,7 @@ export default function CheckoutPage() {
 
             <textarea
               placeholder="Full Address"
+              autoComplete="street-address"
               value={shipping.address}
               onChange={(e) => setShipping({ ...shipping, address: e.target.value })}
               className="w-full rounded border p-2"
@@ -586,6 +591,7 @@ export default function CheckoutPage() {
             <input
               type="text"
               placeholder="City"
+              autoComplete="address-level2"
               value={shipping.city}
               onChange={(e) => setShipping({ ...shipping, city: e.target.value })}
               className="w-full min-h-11 rounded border p-2"
@@ -611,6 +617,8 @@ export default function CheckoutPage() {
             <input
               type="text"
               placeholder="Pincode"
+              inputMode="numeric"
+              autoComplete="postal-code"
               value={shipping.pincode}
               onChange={(e) => setShipping({ ...shipping, pincode: e.target.value })}
               className="w-full min-h-11 rounded border p-2"
@@ -740,6 +748,7 @@ export default function CheckoutPage() {
                 <input
                   type="text"
                   placeholder="Full Name"
+                  autoComplete="billing name"
                   value={billing.name}
                   onChange={(e) => setBilling({ ...billing, name: e.target.value })}
                   disabled={sameAsShipping}
@@ -750,6 +759,7 @@ export default function CheckoutPage() {
                 <input
                   type="email"
                   placeholder="Email Address"
+                  autoComplete="billing email"
                   value={billing.email}
                   onChange={(e) => setBilling({ ...billing, email: e.target.value })}
                   disabled={sameAsShipping}
@@ -758,8 +768,10 @@ export default function CheckoutPage() {
                 />
 
                 <input
-                  type="text"
+                  type="tel"
                   placeholder="Phone Number"
+                  inputMode="numeric"
+                  autoComplete="billing tel"
                   value={billing.phone}
                   onChange={(e) => setBilling({ ...billing, phone: e.target.value })}
                   disabled={sameAsShipping}
@@ -769,6 +781,7 @@ export default function CheckoutPage() {
 
                 <textarea
                   placeholder="Full Address"
+                  autoComplete="billing street-address"
                   value={billing.address}
                   onChange={(e) => setBilling({ ...billing, address: e.target.value })}
                   disabled={sameAsShipping}
@@ -780,6 +793,7 @@ export default function CheckoutPage() {
                 <input
                   type="text"
                   placeholder="City"
+                  autoComplete="billing address-level2"
                   value={billing.city}
                   onChange={(e) => setBilling({ ...billing, city: e.target.value })}
                   disabled={sameAsShipping}
@@ -791,6 +805,7 @@ export default function CheckoutPage() {
                   type="text"
                   placeholder="State"
                   list="india-states"
+                  autoComplete="billing address-level1"
                   value={billing.state}
                   onChange={(e) => setBilling({ ...billing, state: e.target.value })}
                   disabled={sameAsShipping}
@@ -801,6 +816,8 @@ export default function CheckoutPage() {
                 <input
                   type="text"
                   placeholder="Pincode"
+                  inputMode="numeric"
+                  autoComplete="billing postal-code"
                   value={billing.pincode}
                   onChange={(e) => setBilling({ ...billing, pincode: e.target.value })}
                   disabled={sameAsShipping}
