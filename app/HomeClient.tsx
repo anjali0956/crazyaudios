@@ -9,8 +9,8 @@ import ProductImageWithEmblem from "./components/ProductImageWithEmblem";
 import formatCategoryName from "@/lib/formatCategoryName";
 import { getDisplayPrice } from "@/lib/order-utils";
 import shouldShowCaEmblem from "@/lib/shouldShowCaEmblem";
-import { trackPixelEvent } from "@/lib/meta-pixel";
 import { matchesProductName } from "@/lib/product-search";
+import { addProductToCart, addToCartMessage, isOutOfStock, packStep } from "@/lib/add-to-cart";
 
 const CATEGORY_IMAGE_OVERRIDES: Record<string, string> = {
   brainsaudios: "/brains-logo.jpg",
@@ -220,48 +220,18 @@ export default function Home() {
     return matchesSearch && matchesPrice;
   });
 
+  // Same cart item, quantity rules (whole packs, never more than stock) and
+  // Pixel AddToCart as the product and category pages (lib/add-to-cart).
   const addToCartFromHomepage = (product: Product, event: MouseEvent<HTMLButtonElement>) => {
     event.preventDefault();
     event.stopPropagation();
 
-    const storedCart = JSON.parse(browserStorage.get("cart") || "[]");
-    const { inclusiveFinalPrice, inclusiveBasePrice } = getDisplayPrice(
-      product.price,
-      product.discountPercentage || 0,
-      Boolean(product.flashSale)
-    );
-
-    const existingItem = storedCart.find((item: { _id?: string }) => item._id === product._id);
-    const packQuantity = Math.max(1, Number(product.packSize) || 1);
-
-    if (existingItem) {
-      existingItem.quantity = Math.max(packQuantity, Number(existingItem.quantity || packQuantity)) + packQuantity;
-      existingItem.price = inclusiveFinalPrice;
-      existingItem.originalPrice = inclusiveBasePrice;
-      existingItem.flashSale = Boolean(product.flashSale);
-      existingItem.discountPercentage = product.discountPercentage || 0;
-      existingItem.packSize = product.packSize || null;
-    } else {
-      storedCart.push({
-        ...product,
-        price: inclusiveFinalPrice,
-        originalPrice: inclusiveBasePrice,
-        flashSale: Boolean(product.flashSale),
-        discountPercentage: product.discountPercentage || 0,
-        quantity: packQuantity,
-      });
+    if (isOutOfStock(product)) {
+      alert("This product is out of stock.");
+      return;
     }
-
-    browserStorage.set("cart", JSON.stringify(storedCart));
-    trackPixelEvent("AddToCart", {
-      content_ids: [product._id],
-      content_type: "product",
-      content_name: product.name,
-      contents: [{ id: product._id, quantity: packQuantity, item_price: inclusiveFinalPrice }],
-      value: Number((inclusiveFinalPrice * packQuantity).toFixed(2)),
-      currency: "INR",
-    });
-    alert("Added to cart!");
+    const result = addProductToCart(product, packStep(product));
+    alert(addToCartMessage(result));
   };
 
   return (
