@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { notFound } from "next/navigation";
 import { cache } from "react";
 import mongoose from "mongoose";
 import dbConnect from "@/lib/mongodb";
@@ -24,14 +25,16 @@ type ProductRecord = {
 };
 
 // Shared by generateMetadata and the page within one request.
-const getProduct = cache(async (id: string): Promise<ProductRecord | null> => {
+// null = no such product (invalid id or not in the database);
+// undefined = the database could not be read, so we don't know.
+const getProduct = cache(async (id: string): Promise<ProductRecord | null | undefined> => {
   if (!mongoose.isValidObjectId(id)) return null;
   try {
     await dbConnect();
     return (await Product.findById(id).lean()) as ProductRecord | null;
   } catch (error) {
     console.error("Failed to load product for metadata:", error);
-    return null;
+    return undefined;
   }
 });
 
@@ -40,6 +43,7 @@ const getProduct = cache(async (id: string): Promise<ProductRecord | null> => {
 export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
   const { id } = await params;
   const product = await getProduct(id);
+  if (product === null) return { title: "Product not found", robots: { index: false } };
   if (!product) return { title: "Product" };
 
   const { packSize, sellPrice } = getSellablePrice(product);
@@ -88,6 +92,10 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
 export default async function ProductPage({ params }: PageProps) {
   const { id } = await params;
   const product = await getProduct(id);
+  // A product that does not exist gets a real 404 (not-found.tsx). If the
+  // database could not be read, the page still renders and the browser
+  // fetches the product itself.
+  if (product === null) notFound();
 
   const jsonLd = product
     ? {
