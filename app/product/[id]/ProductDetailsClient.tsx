@@ -12,6 +12,7 @@ import { trackPixelEvent } from "@/lib/meta-pixel";
 import { addProductToCart, addToCartMessage, isOutOfStock, maxCartQuantity } from "@/lib/add-to-cart";
 import { absoluteUrl } from "@/lib/site";
 import { WhatsAppProductButton } from "@/app/components/WhatsApp";
+import ProductNotFound from "./ProductNotFound";
 import {
   COD_ENABLED,
   COD_MAX_ORDER_VALUE,
@@ -40,9 +41,12 @@ export default function ProductDetails() {
   const [allProducts, setAllProducts] = useState<Product[]>([]);
   const [quantity, setQuantity] = useState(1);
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
+  // The id the API said does not exist (404, or 400 for an invalid id).
+  const [missingId, setMissingId] = useState<string | null>(null);
 
   useEffect(() => {
     if (!id) return;
+    const requestedId = id;
 
     Promise.all([axios.get(`/api/products/${id}`), axios.get("/api/products")])
       .then(([productRes, productsRes]) => {
@@ -54,6 +58,9 @@ export default function ProductDetails() {
       })
       .catch((err) => {
         console.error("Error fetching product:", err);
+        // Only the single-product request answers 400/404; other errors keep "Loading...".
+        const status = axios.isAxiosError(err) ? err.response?.status : undefined;
+        if (status === 404 || status === 400) setMissingId(requestedId);
       });
   }, [id]);
 
@@ -133,6 +140,7 @@ export default function ProductDetails() {
     alert(addToCartMessage(result));
   };
 
+  if (id && missingId === id) return <ProductNotFound />;
   if (!product) return <p className="p-4 sm:p-6 lg:p-10">Loading...</p>;
 
   return (
