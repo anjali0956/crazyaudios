@@ -48,7 +48,7 @@ export default function PrivacyPolicyPage() {
             <strong>Payments.</strong> Online payments are processed by Razorpay. With your order we
             share your name, email address, phone number and delivery address with Razorpay, along
             with the order amount and receipt number. You enter your card, UPI or netbanking details
-            with Razorpay; they never reach us. Cash on Delivery orders are not sent to Razorpay.
+            with Razorpay; they never reach us.
           </li>
           <li>
             <strong>Delivery.</strong> To quote shipping, we send your delivery PIN code and the
@@ -84,8 +84,8 @@ export default function PrivacyPolicyPage() {
       <section>
         <h2 className="text-xl font-semibold text-gray-900">Meta Conversions API</h2>
         <p className="mt-2">
-          When your order is confirmed (when you place a Cash on Delivery order, or when your online
-          payment goes through), our server also reports the purchase directly to Meta through the
+          When your order is confirmed (when your online payment goes through), our server also
+          reports the purchase directly to Meta through the
           Meta Conversions API, so the sale is counted even if your browser blocks the Pixel. With
           it we send:
         </p>
