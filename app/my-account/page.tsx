@@ -86,21 +86,6 @@ export default async function MyAccountPage() {
         </>
       }
     >
-      {session.user.role === "admin" ? (
-        <section aria-labelledby="admin-panel" className="rounded-card bg-ink p-5 text-white sm:p-6">
-          <h2 id="admin-panel" className="type-h3 text-white">
-            Admin panel
-          </h2>
-          <p className="mt-1 text-[15px] leading-[22px] text-white/80">
-            All customer orders, shipping labels, tracking updates and products are in the admin panel. This page lists only
-            the orders placed on your own account.
-          </p>
-          <ButtonLink href="/admin" variant="primary" className="mt-4">
-            Open admin panel
-          </ButtonLink>
-        </section>
-      ) : null}
-
       <nav aria-label="Account shortcuts">
         <ul className="grid gap-3 sm:grid-cols-2">
           <li>

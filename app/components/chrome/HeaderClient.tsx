@@ -136,27 +136,6 @@ export function CartButton({ className }: { className?: string }) {
   );
 }
 
-/**
- * Admins only: a visible way into the admin panel (orders, shipping labels,
- * tracking, products), on phones too. The old header showed "Admin" in the top
- * bar; without it the owner could not find the panel.
- */
-export function AdminButton({ className }: { className?: string }) {
-  const { data: session } = useSession();
-  if (session?.user?.role !== "admin") return null;
-  return (
-    <Link
-      href="/admin"
-      className={cx(
-        "mx-1 inline-flex h-9 shrink-0 items-center rounded-chip bg-signal px-3 text-[13px] font-bold leading-none text-ink transition-colors duration-150 hover:bg-white",
-        className
-      )}
-    >
-      Admin
-    </Link>
-  );
-}
-
 export function AccountButton({ className }: { className?: string }) {
   const { status } = useSession();
   const signedIn = status === "authenticated";
