@@ -211,8 +211,10 @@ export default async function CheckoutSuccessPage({
           </div>
         ) : null}
 
-        <dl className="mt-6 grid grid-cols-2 gap-px overflow-hidden rounded-card border border-line bg-line text-[14px] leading-5">
-          <div className="bg-card px-4 py-3">
+        {/* Phones: the receipt (CA- + 16 digits) gets a full row so it never wraps mid-number;
+            "Placed on" takes the last full row and Amount + Payment pair up (dense flow). */}
+        <dl className="mt-6 grid grid-flow-row-dense grid-cols-2 gap-px overflow-hidden rounded-card border border-line bg-line text-[14px] leading-5 sm:grid-flow-row">
+          <div className="col-span-2 bg-card px-4 py-3 sm:col-span-1">
             <dt className="text-muted">Receipt</dt>
             <dd className="mt-0.5 break-all font-mono text-[14px] font-medium text-ink">{order.receipt}</dd>
           </div>
@@ -221,7 +223,7 @@ export default async function CheckoutSuccessPage({
             <dd className="type-price mt-0.5 text-[16px] text-ink">{amount}</dd>
           </div>
           {placedOn ? (
-            <div className="bg-card px-4 py-3">
+            <div className="col-span-2 bg-card px-4 py-3 sm:col-span-1">
               <dt className="text-muted">Placed on</dt>
               <dd className="mt-0.5 text-ink">{placedOn}</dd>
             </div>

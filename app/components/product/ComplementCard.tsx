@@ -33,7 +33,11 @@ export function ComplementCard({ product, className }: { product: CatalogProduct
         />
       </div>
       <div className="min-w-0 flex-1">
-        <h2 id={`${titleId}-kicker`} className="type-kicker text-[11px] leading-4 tracking-[0.1em] text-signal-ink [font-stretch:100%]">
+        {/* One line at 360 px (it wrapped as "COMPLEMENTARY / PART" there): tighter tracking on phones. */}
+        <h2
+          id={`${titleId}-kicker`}
+          className="type-kicker truncate text-[11px] leading-4 tracking-[0.05em] text-signal-ink [font-stretch:100%] min-[400px]:tracking-[0.1em]"
+        >
           Complementary part
         </h2>
         <p className="mt-0.5 flex min-w-0 items-baseline gap-2 text-[16px] leading-6">

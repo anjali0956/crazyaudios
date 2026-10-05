@@ -58,7 +58,8 @@ export function TrustStrip({
           With every order
         </Item>
         <Item icon={<IconTruck size={20} />} title="Same-day dispatch">
-          Most orders, before 2 PM Mon–Sat
+          {/* Kept together: an en dash is a line-break opportunity ("Mon–" / "Sat"). */}
+          Most orders, before <span className="whitespace-nowrap">2 PM</span> <span className="whitespace-nowrap">Mon–Sat</span>
         </Item>
         <Item icon={<IconCheckCircle size={20} />} title="Warranty">
           Seller and manufacturer
