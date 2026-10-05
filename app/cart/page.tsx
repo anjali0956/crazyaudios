@@ -72,6 +72,14 @@ function saveCart(items: CartItem[]) {
 
 const packStep = (item: { packSize?: number | null }) => Math.max(1, Number(item.packSize) || 1);
 
+// The most a customer can order: the stock left, in whole packs. No limit
+// when the stock isn't known (the server still checks it).
+function maxQuantity(item: { stock?: number; packSize?: number | null }) {
+  if (typeof item.stock !== "number" || !Number.isFinite(item.stock)) return Number.POSITIVE_INFINITY;
+  const step = packStep(item);
+  return Math.max(0, Math.floor(item.stock / step) * step);
+}
+
 // Brings the stored cart in line with the live catalogue: today's prices,
 // quantities capped at the stock left (whole packs), and products that are
 // gone or sold out taken out. Items the check didn't cover stay as they are.
@@ -186,11 +194,12 @@ export default function CartPage() {
   };
 
   const increaseQty = (id: string) => {
-    const updatedCart = cart.map((item) =>
-      item._id === id
-        ? { ...item, quantity: item.quantity + Math.max(1, Number(item.packSize) || 1) }
-        : item
-    );
+    const updatedCart = cart.map((item) => {
+      if (item._id !== id) return item;
+      const quantity = item.quantity + packStep(item);
+      // Never above the stock left.
+      return quantity <= maxQuantity(item) ? { ...item, quantity } : item;
+    });
     updateCart(updatedCart);
   };
 
@@ -215,7 +224,8 @@ export default function CartPage() {
       if (item._id !== id) return item;
       const step = Math.max(1, Number(item.packSize) || 1);
       const safeQty = Math.max(step, Math.ceil(Math.floor(parsed) / step) * step);
-      return { ...item, quantity: safeQty };
+      // Between one pack and the stock left.
+      return { ...item, quantity: Math.max(step, Math.min(safeQty, maxQuantity(item))) };
     });
     updateCart(updatedCart);
   };
@@ -302,6 +312,7 @@ export default function CartPage() {
                     <div className="inline-flex items-center rounded-md border border-gray-300">
                       <button
                         onClick={() => decreaseQty(item._id)}
+                        disabled={item.quantity <= packStep(item)}
                         className="h-10 w-10 text-xl text-gray-600 hover:bg-gray-100"
                         aria-label={`Decrease quantity for ${item.name}`}
                       >
@@ -311,12 +322,14 @@ export default function CartPage() {
                         type="number"
                         min={Math.max(1, Number(item.packSize) || 1)}
                         step={Math.max(1, Number(item.packSize) || 1)}
+                        max={Number.isFinite(maxQuantity(item)) ? maxQuantity(item) : undefined}
                         value={item.quantity}
                         onChange={(e) => handleQtyInput(item._id, e.target.value)}
                         className="h-10 w-14 border-x border-gray-300 text-center outline-none"
                       />
                       <button
                         onClick={() => increaseQty(item._id)}
+                        disabled={item.quantity + packStep(item) > maxQuantity(item)}
                         className="h-10 w-10 text-xl text-gray-600 hover:bg-gray-100"
                         aria-label={`Increase quantity for ${item.name}`}
                       >
