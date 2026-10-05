@@ -18,7 +18,13 @@ import {
   SHIPPING_PICKUP_PINCODE,
   ShippingQuoteError,
 } from "@/lib/shipping-rates";
-import { COD_MAX_ORDER_VALUE, isCodAllowed, normalizePaymentMethod } from "@/lib/shipping-policy";
+import {
+  COD_ENABLED,
+  COD_MAX_ORDER_VALUE,
+  COD_UNAVAILABLE_MESSAGE,
+  isCodAllowed,
+  normalizePaymentMethod,
+} from "@/lib/shipping-policy";
 import { sanitizeAttribution } from "@/lib/attribution";
 import { validateCheckoutAddresses } from "@/lib/checkout-validation";
 import { normalizeEmail } from "@/lib/email";
@@ -128,6 +134,9 @@ export async function POST(req: Request) {
 
     const subtotal = items.reduce((sum, item) => sum + item.lineTotal, 0);
 
+    if (paymentMethod === "cod" && !COD_ENABLED) {
+      return errorResponse(400, COD_UNAVAILABLE_MESSAGE);
+    }
     if (paymentMethod === "cod" && !isCodAllowed(subtotal)) {
       return errorResponse(400, `Cash on Delivery is available on orders up to Rs ${COD_MAX_ORDER_VALUE}`);
     }
@@ -295,7 +304,9 @@ export async function POST(req: Request) {
       console.error("[create-order] Razorpay order could not be created:", razorpayError);
       return errorResponse(
         502,
-        "Online payment is not available right now. Please try again in a minute, or choose Cash on Delivery."
+        COD_ENABLED
+          ? "Online payment is not available right now. Please try again in a minute, or choose Cash on Delivery."
+          : "Online payment is not available right now. Please try again in a minute, or message us on WhatsApp."
       );
     }
 

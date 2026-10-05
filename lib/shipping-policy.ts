@@ -14,7 +14,13 @@ export const FREE_SHIPPING_THRESHOLD = readNumber(
   1499
 );
 
-export const COD_ENABLED = process.env.NEXT_PUBLIC_COD_ENABLED !== "false";
+// Cash on Delivery is OFF (owner's decision, 5 Oct 2026). It comes back only if
+// NEXT_PUBLIC_COD_ENABLED is set to "true" and the site is rebuilt. While off,
+// the checkout offers online payment only, the server refuses COD orders and
+// quotes, and the product, FAQ and shipping pages don't mention COD.
+export const COD_ENABLED = process.env.NEXT_PUBLIC_COD_ENABLED === "true";
+
+export const COD_UNAVAILABLE_MESSAGE = "Cash on Delivery is not available. Please pay online.";
 
 // Highest product subtotal allowed for Cash on Delivery.
 export const COD_MAX_ORDER_VALUE = readNumber(process.env.NEXT_PUBLIC_COD_MAX_ORDER_VALUE, 5000);

@@ -9,7 +9,7 @@ import {
   ShippingQuoteError,
 } from "@/lib/shipping-rates";
 import { getDisplayPrice, roundCurrency } from "@/lib/order-utils";
-import { isCodAllowed, COD_MAX_ORDER_VALUE } from "@/lib/shipping-policy";
+import { isCodAllowed, COD_ENABLED, COD_MAX_ORDER_VALUE, COD_UNAVAILABLE_MESSAGE } from "@/lib/shipping-policy";
 import { normalizePincode } from "@/lib/checkout-validation";
 
 type IncomingCartItem = {
@@ -77,6 +77,9 @@ export async function POST(req: Request) {
       }, 0)
     );
 
+    if (cod && !COD_ENABLED) {
+      return NextResponse.json({ error: COD_UNAVAILABLE_MESSAGE }, { status: 400 });
+    }
     if (cod && !isCodAllowed(subtotal)) {
       return NextResponse.json(
         { error: `Cash on Delivery is available on orders up to Rs ${COD_MAX_ORDER_VALUE}` },
