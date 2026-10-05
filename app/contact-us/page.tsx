@@ -75,7 +75,7 @@ export default function ContactUsPage() {
             <span>
               <span className="block text-[14px] leading-5 text-muted">Dispatch</span>
               <span className="block text-[16px] font-semibold leading-6 text-ink">
-                Ships from ElectroSupply, Irinjalakuda, Thrissur, Kerala
+                Ships from Irinjalakuda, Thrissur, Kerala
               </span>
             </span>
           </li>

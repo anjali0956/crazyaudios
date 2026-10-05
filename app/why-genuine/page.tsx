@@ -167,7 +167,7 @@ const PROMISES = [
   {
     icon: <IconReceipt size={22} />,
     title: "GST invoice with every order",
-    text: "A proper tax invoice for every purchase, which you can download from your order confirmation.",
+    text: "A GST invoice for every order, which you can download from your order confirmation.",
   },
   {
     icon: <IconWhatsApp size={22} />,
