@@ -29,7 +29,7 @@ Important:
 
 ### Main goals of the site
 - E-commerce store for audio/electronics parts
-- Public storefront with category browsing and featured products
+- Public storefront built for Instagram/Facebook ad traffic on phones: components first, around the owner's message "original parts, directly imported" (see section 4)
 - Admin panel for product, banner, traffic, and order management
 - Payment, invoice download, shipping quote calculation, and printable shipping labels
 
@@ -39,18 +39,72 @@ Important:
 
 ### Key folders/files
 - `app/page.tsx`
-  - Homepage
-  - Hero slideshow banners
-  - Featured products
-  - Category cards
-  - Promo banner pair
-  - Seller opportunity banner
-  - Footer
+  - Homepage, server-rendered (ISR, `revalidate = 60`)
+  - Hero "Original parts, directly imported.", service promises, department
+    tiles, most-searched originals, "Why original matters", Peerless band,
+    BrainsAudios modules, the admin's promo banner pair
+  - Data from `app/components/home/home-data.ts`; it falls back to a static
+    page if the database is down
 
 - `app/product/[id]/page.tsx`
-  - Individual product page
-  - Multi-image gallery with arrows + thumbnails
-  - Related products section
+  - Product page = the ad landing page. Server-rendered with ISR
+    (`revalidate = 60`); every product is pre-rendered at build time when the
+    database is reachable (so the build reads MongoDB)
+  - Real 404 for unknown ids; JSON-LD (Product, BreadcrumbList) and og tags for
+    link previews
+  - UI: `ProductDetailsClient.tsx` + `app/components/product/*` (gallery,
+    sticky buy bar, delivery check, trust strip, spec table, complementary part)
+
+- `app/category/[category]/page.tsx`
+  - Category and department pages on clean slugs (`/category/amplifier-ics`,
+    `/category/speaker-drivers`); old URLs such as `/category/amplifier%20ic`
+    308-redirect to them
+  - Sort, "In stock only" and brand filters (`app/components/catalog/*`)
+
+- `app/search/page.tsx`, `app/api/search/route.ts`, `lib/search.ts`
+  - Part-number search: ignores case, spaces and punctuation, treats O and 0
+    alike, and ignores "original"/"genuine"
+
+- `app/why-genuine/page.tsx`
+  - Counterfeit explainer (never names another seller)
+
+- `app/checkout/*`
+  - `CheckoutView.tsx` (form + summary), `checkout-form.ts` (fields and the
+    same validation rules as the server), `useShippingQuotes.ts`,
+    `razorpay-client.ts` (Razorpay modal, or redirect mode with `callback_url`
+    inside the Instagram/Facebook in-app browsers)
+
+- `app/components/` (storefront UI)
+  - `chrome/` header, menu, search, footer; `home/`; `catalog/`; `product/`;
+    `cart/` (`cart-store.ts`: localStorage key `cart`, same item shape as the
+    old site, so old carts keep working); `checkout/`; `content/` (info pages);
+    `ui/` (Button, ProductCard, Price, Sheet, Toast, ClaimLine, ...)
+
+- `lib/catalog.ts`
+  - every storefront product read, cached 60 s (`unstable_cache`, tag
+    `products`); departments and counts
+
+- `lib/categories.ts`
+  - category slugs and departments, and `trustLine()`: the ONLY place sourcing
+    claims come from (see section 4)
+
+- `lib/display.ts`
+  - customer-facing names (`displayName`: "LM 3886" -> "LM3886", "TLO72" ->
+    "TL072"), collapsing duplicate listings, `KNOWN_WRONG_IMAGES`
+
+- `lib/parts.ts`
+  - part descriptors, most-faked parts, complementary pairs (2SC5200 <-> 2SA1943)
+
+- `lib/format.ts`
+  - `formatINR`, `pricingOf`, `brandOf`, `specsOf`
+
+- `app/globals.css`
+  - design tokens (Tailwind v4 `@theme`): ink `#121416`, paper `#F7F5F0`,
+    signal orange `#FF5A1F` (ink text on orange); fonts Archivo + IBM Plex Mono
+    via `next/font`
+
+- `/styleguide`
+  - component gallery; hidden in production unless `ENABLE_STYLEGUIDE=1`
 
 - `app/admin/AdminClient.tsx`
   - Main admin panel UI
@@ -149,82 +203,90 @@ Removed (it was no longer wired into middleware). `PREVIEW_SITE_ENABLED` and
 
 ---
 
-## 4. Homepage / Storefront Features Already Implemented
+## 4. Storefront (redesign, live since 5 Oct 2026, PR #8)
 
-### Featured Products
-- Homepage shows only products marked as `featured`
-- Admin can toggle `featured` directly from product list
+Built for people who tap an Instagram/Facebook ad on a phone. The owner's
+message is "original parts, directly imported": components lead, and Peerless
+speakers are a secondary band.
 
-### Categories section
-- Clickable category cards with image + title
-- Clicking a category opens category page with products for that category
-- Category cards use one product image from the category as representative image
+### What a customer sees
+- A slim sticky header (menu, logo, search, cart count) and the same footer
+  on every page
+- Homepage: hero, four service promises, shop-by-department tiles, the
+  most-searched originals, "Why original matters", the Peerless band,
+  BrainsAudios modules, and the admin's promo banner pair
+- Category and department pages: 2-column grid, sort, "In stock only" and
+  brand filters, Add to cart on every card
+- Product page: photo, maker, name, descriptor, price incl. GST and stock on
+  the first screen; sticky Add to cart / WhatsApp bar; delivery date by PIN
+  code; trust strip; datasheet-style specs; the complementary part
+- The cart re-checks prices and stock with the server (`/api/cart/validate`)
+- Checkout: phone first, the PIN code fills city and state
+  (`/api/pincode/[pin]`), a state dropdown, billing = delivery by default,
+  shipping and the COD fee shown separately, a sticky Pay / Place COD order bar
+- `featured` (Admin) still matters: featured products sort first in the home
+  sections and listings
 
-### Product cards
-- GST-inclusive price shown on cards
-- Flash sale support
-- Stock status:
-  - `In stock`
-  - `Quick! Few left`
-  - `Out of stock`
+### Rules that are easy to break
+- Prices: `formatINR` shows whole rupees, or the exact paise when an amount has
+  them (a flash-sale ₹1,112.50 is never shown as ₹1,113), so the page always
+  equals what Razorpay charges
+- Sourcing claims come only from `trustLine()` in `lib/categories.ts`:
+  semiconductors and passives say "Original · Directly imported · Invoice with
+  GST"; Peerless says "Genuine Peerless by Tymphany · Invoice with GST";
+  everything else "Original · Invoice with GST". Say "GST invoice" or "Tax
+  invoice" only once `INVOICE_SELLER_GSTIN` is set
+- Never name or accuse other sellers (the why-genuine page and the ads)
+- Display names (`lib/display.ts`) are for customers only. The database, the
+  Pixel, CAPI and the Meta feed keep the raw admin names, and product URLs stay
+  `/product/{_id}` (the feed and the Pixel rely on that id)
+- Photos listed in `KNOWN_WRONG_IMAGES` render "Photo coming soon". A new
+  upload in Admin gets a new path, so the right photo shows automatically
+- Admin edits reach the storefront within about 2 minutes (60 s data cache +
+  60 s ISR). Nothing invalidates the cache on save yet
 
-### Product detail page
-- Multi-image gallery for each product
-- Left/right arrows
-- Thumbnail strip
-- Related products section
+### Images
+- Next's built-in optimiser (`/_next/image`) serves AVIF/WebP at the right
+  width; the old custom loader is gone
+- The files in `/public` were normalised in PR #8 (square, centred, real
+  JPEG/PNG matching the extension, at least 500×500 for Meta) under the same
+  names, so feed image links did not change
 
-### CA Certified emblem
-- Applied to most products where relevant
-- Explicitly removed for connectors and rotary encoder products
-- Not shown on category cards
+### CA Certified
+- A small "CA Certified" tag next to the maker on product pages (no longer the
+  big emblem over the photo); `lib/shouldShowCaEmblem.ts` still decides which
+  products get it (not connectors or rotary encoders)
 
-### Seller opportunity banner
-- Horizontal banner below the service icons section
-- CTA via email
-
-### Footer links/pages
-Pages and links were added for:
-- privacy policy
-- terms of service
-- shipping & refund
-- track order
-- FAQ
-- about us
-- contact us
-- my account/cart/checkout links
+### Info pages
+- Privacy policy, terms of service, shipping & refund, track order, FAQ, about
+  us, contact us and why-genuine share `app/components/InfoPageShell.tsx`.
+  The privacy policy discloses the Meta Pixel and Conversions API
 
 ---
 
 ## 5. Banner System
 
 ### Top hero slideshow
-There are multiple top scrolling/sliding banners.
+Removed in PR #8. The homepage now opens with a fixed hero (headline, two
+buttons, service promises) that reads well inside Instagram's browser. The old
+slides (Peerless Store, CA Certified, BrainsAudios, Flea Market) were image
+text that was unreadable on phones.
 
-Important visual requirement:
-- banners must fit well on both desktop and mobile
-- do not stretch or crop carelessly
-- `object-contain`-style behavior was preferred for several banners
-- user was especially sensitive to banner ratio issues
-
-Current hero banners include:
-- Peerless Store
-- CA Certified banner
-- BrainsAudios banner
-- CrazyAudios Flea Market banner
-
-### Homepage promo banners near footer
-Stored as left/right homepage banner pair in site settings.
-
-Admin can update:
-- left homepage banner URL
-- right homepage banner URL
+### Homepage promo banners
+Stored as the left/right banner pair in site settings (Admin → "Homepage
+Banner Pair"). They show as two image cards on the homepage, each keeping its
+own aspect ratio, and only when real images are set: the stock SVG artwork
+counts as "not set". The left card links to `/category/diodes` and the right
+one to `/why-genuine` (the admin form has no link field).
 
 Relevant files:
-- `app/page.tsx`
+- `app/components/home/promo-banners.ts`, `app/components/home/PromoBanners.tsx`
 - `app/api/settings/route.ts`
 - `models/SiteSettings.ts`
 - `app/admin/AdminClient.tsx`
+
+Banner images must still fit both desktop and mobile without stretching or
+careless cropping.
 
 ---
 
@@ -239,8 +301,8 @@ This is very important and was corrected explicitly:
 - Use GST only for **breakdown extraction**
 
 ### GST display
-- Product cards show: `Inclusive of GST`
-- Checkout summary and invoices show GST breakdown
+- Product pages say "Incl. GST" under the price; cards show the GST-inclusive price
+- Checkout states the GST once ("Includes ₹X GST"); invoices show the breakdown
 - GST bifurcation includes:
   - CGST + SGST for intra-state
   - IGST for inter-state
@@ -361,15 +423,19 @@ Backend:
 - Admin -> Orders & Tracking -> "Payment pending (unverified)" lists online orders
   not confirmed after 15 minutes; "Check with Razorpay" reconciles the last 7 days
 
-Frontend:
-- checkout loads Razorpay checkout script
-- opens modal
-- verifies on success
+Frontend (`app/checkout/razorpay-client.ts`):
+- normal browsers: Razorpay's modal, then `/api/verify-payment`
+- Instagram/Facebook in-app browsers (user agent FBAN/FBAV/Instagram): redirect
+  mode, because the modal often dies there during the UPI app switch. Razorpay
+  posts the result to `callback_url` = `/api/razorpay/callback`, which verifies
+  the signature, calls `markOrderPaid()` and answers 303 to
+  `/checkout/success?order=...` (or back to `/checkout?payment=failed&reason=...`)
 
 Relevant files:
 - `app/api/create-order/route.ts`
 - `app/api/verify-payment/route.ts`
-- `app/checkout/page.tsx`
+- `app/api/razorpay/callback/route.ts`
+- `app/checkout/page.tsx`, `app/checkout/CheckoutView.tsx`
 
 ### Important payment notes
 - Free test-order hack for TIP35 was created temporarily and then rolled back
@@ -392,13 +458,16 @@ Relevant files:
 ## 10. Invoice PDF
 
 ### Numbering and seller details
-- Titled "Tax Invoice" with CrazyAudios branding
+- CrazyAudios branding; titled "Tax Invoice" only when `INVOICE_SELLER_GSTIN`
+  is set, otherwise "Invoice"
 - Sequential numbers `CA/2026-27/000123` per Indian financial year (Apr-Mar),
   from the `counters` collection, assigned only when an order is paid or a COD
   order is confirmed (`PENDING-<receipt>` placeholder before that). Older orders
   keep their `INV-...` numbers
-- Seller block printed only from `INVOICE_SELLER_NAME`, `INVOICE_SELLER_ADDRESS`
-  (use `|` between lines) and `INVOICE_SELLER_GSTIN`; nothing is invented
+- Seller block: ElectroSupply, Nakkara Complex, Town Hall Road, Irinjalakuda,
+  Thrissur, Kerala - 680121 (the shipping-label sender) unless
+  `INVOICE_SELLER_NAME` / `INVOICE_SELLER_ADDRESS` (use `|` between lines) are
+  set. The GSTIN line comes only from `INVOICE_SELLER_GSTIN`; nothing is invented
 
 ### Current status
 Invoice PDF layout was fixed because:
@@ -632,7 +701,10 @@ Important env names:
 - `KALLADA_SHIPPING_RATE_API_URL`
 - `KALLADA_PICKUP_PINCODE`
 - `RAZORPAY_WEBHOOK_SECRET` (secret) – same value as the webhook secret in the Razorpay Dashboard. Without it the webhook answers 503 and logs why.
-- `INVOICE_SELLER_NAME`, `INVOICE_SELLER_ADDRESS`, `INVOICE_SELLER_GSTIN` (optional) – seller details on invoices; printed only when set.
+- `INVOICE_SELLER_NAME`, `INVOICE_SELLER_ADDRESS` (optional) – override the default seller (ElectroSupply, Irinjalakuda) on invoices.
+- `INVOICE_SELLER_GSTIN` (optional) – printed on invoices when set, and turns the title into "Tax Invoice".
+- `PINCODE_API_URL` (optional) [`https://api.postalpincode.in/pincode`] – PIN code → city/state lookup used by checkout.
+- `ENABLE_STYLEGUIDE` (optional) – set to `1` to show `/styleguide` in production.
 
 Meta ads, COD and free shipping (all optional; defaults in brackets):
 - `META_CAPI_ACCESS_TOKEN` (secret) – Conversions API token from Events Manager → Settings. Without it, server-side Purchase events are skipped; the browser pixel still works.
