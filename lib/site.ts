@@ -25,14 +25,7 @@ export const DEFAULT_OPEN_GRAPH = {
   locale: "en_IN",
   title: SITE_TITLE,
   description: SITE_DESCRIPTION,
-  images: [
-    {
-      url: "/og/crazyaudios-og.png",
-      width: 1200,
-      height: 630,
-      alt: `${SITE_NAME} – Original parts, directly imported`,
-    },
-  ],
+  images: [{ url: "/crazy-audios-logo.jpg", alt: SITE_NAME }],
 };
 
 // Meta Business Suite → Brand safety → Domains → crazyaudios.com (meta-tag method).

@@ -1,7 +1,6 @@
 import type { MetadataRoute } from "next";
 import dbConnect from "@/lib/mongodb";
 import Product from "@/models/Product";
-import { CATEGORY_GROUPS, categoryInfo } from "@/lib/categories";
 import { absoluteUrl } from "@/lib/site";
 
 // Built per request from the database, so new products appear without a
@@ -10,7 +9,6 @@ export const dynamic = "force-dynamic";
 
 const STATIC_PAGES = [
   { path: "/", priority: 1 },
-  { path: "/why-genuine", priority: 0.6 },
   { path: "/about-us", priority: 0.5 },
   { path: "/contact-us", priority: 0.5 },
   { path: "/faq", priority: 0.4 },
@@ -33,18 +31,11 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     await dbConnect();
     const products = (await Product.find({}, { _id: 1, category: 1, updatedAt: 1 }).lean()) as ProductRow[];
 
-    // Canonical slug URLs, the form the storefront links to (/category/amplifier-ics;
-    // old /category/amplifier%20ic URLs redirect there), plus department pages for
-    // groups that span two or more categories (/category/semiconductors).
-    const categories = [...new Set(products.map((p) => categoryInfo(p.category).raw).filter(Boolean))];
-    const categoryPaths = new Set(categories.map((raw) => categoryInfo(raw).href));
-    for (const group of CATEGORY_GROUPS) {
-      const present = categories.filter((raw) => categoryInfo(raw).group === group.id);
-      if (present.length >= 2) categoryPaths.add(`/category/${group.slug}`);
-    }
-    for (const path of categoryPaths) {
+    const categories = [...new Set(products.map((p) => p.category).filter(Boolean) as string[])];
+    for (const category of categories) {
+      // Same URL form the storefront links to (app/HomeClient.tsx, CategoryDropdown).
       entries.push({
-        url: absoluteUrl(path),
+        url: absoluteUrl(`/category/${encodeURIComponent(category)}`),
         changeFrequency: "weekly",
         priority: 0.7,
       });
