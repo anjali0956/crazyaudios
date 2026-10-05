@@ -77,7 +77,7 @@ function safeDecode(value: string) {
 const COD_LINE = COD_ENABLED ? `, COD up to ${formatINR(COD_MAX_ORDER_VALUE)}` : "";
 
 function describe(label: string, count: number, noun: string, raw: string, group: CategoryGroupId) {
-  const items = `${count} ${noun} with a GST invoice`;
+  const items = `${count} ${noun}, prices include GST`;
   const dispatch = `Same-day dispatch on most orders${COD_LINE}.`;
   if (isDirectlyImported(raw)) {
     return `Original ${midSentence(label)}, directly imported from authorised international sources: ${items}. ${dispatch}`;

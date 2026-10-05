@@ -18,7 +18,7 @@ import { EmptyState } from "@/app/components/ui/EmptyState";
 import { Checkbox, Input, Select } from "@/app/components/ui/Field";
 import { Skeleton } from "@/app/components/ui/Skeleton";
 import { useToast } from "@/app/components/ui/Toast";
-import { useBottomBar } from "@/app/components/ui/useBottomBar";
+import { useBottomBar, useReservedBottomSpace } from "@/app/components/ui/useBottomBar";
 import { cx } from "@/app/components/ui/cx";
 import { getStoredAttribution } from "@/lib/attribution";
 import { normalizePincode, validateCheckoutAddresses } from "@/lib/checkout-validation";
@@ -231,6 +231,8 @@ export function CheckoutView({ paymentReturn = null }: { paymentReturn?: Payment
   const showForm = ready && items.length > 0 && !placed;
 
   useBottomBar(compact && showForm, BAR_HEIGHT);
+  // The pay bar is always on screen on phones: keep the footer's last links clear of it.
+  useReservedBottomSpace(compact && showForm, BAR_HEIGHT);
 
   // ------------------------------------------------------------ effects
   // Meta InitiateCheckout, once, with the same payload as before (after the cart check, so prices are live).

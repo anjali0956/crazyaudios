@@ -19,7 +19,7 @@ import { DEFAULT_OPEN_GRAPH } from "@/lib/site";
 // cached catalogue; it falls back to a static page if the database is down.
 export const revalidate = 60;
 
-const HOME_DESCRIPTION = `Original amplifier ICs, transistors, op-amps, MOSFETs and capacitors, directly imported. GST invoice, same-day dispatch on most orders${
+const HOME_DESCRIPTION = `Original amplifier ICs, transistors, op-amps, MOSFETs and capacitors, directly imported. Prices include GST, same-day dispatch on most orders${
   COD_ENABLED ? `, COD up to ${formatINR(COD_MAX_ORDER_VALUE)}` : ""
 }.`;
 

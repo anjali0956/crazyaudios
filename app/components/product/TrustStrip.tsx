@@ -18,7 +18,7 @@ function Item({ icon, title, children }: { icon: ReactNode; title: string; child
 
 /**
  * Trust strip under the buy box: the category's sourcing claim (trustLine,
- * spec §14) with the "why genuine" link, then GST invoice, same-day dispatch,
+ * spec §14) with the "why genuine" link, then the invoice, same-day dispatch,
  * warranty and the shipping & returns policy. Only the owner's stated facts.
  */
 export function TrustStrip({
@@ -26,7 +26,7 @@ export function TrustStrip({
   qualityChecked,
   className,
 }: {
-  /** trustLine() for the product's category, e.g. "Original · Directly imported · GST invoice". */
+  /** trustLine() for the product's category, e.g. "Original · Directly imported · Invoice with GST". */
   line: string;
   /** CA Certified product (every batch quality-checked). */
   qualityChecked: boolean;
@@ -54,11 +54,12 @@ export function TrustStrip({
         </div>
       </div>
       <ul role="list" className="grid grid-cols-2 gap-px border-t border-line bg-line">
-        <Item icon={<IconReceipt size={20} />} title="GST invoice">
+        <Item icon={<IconReceipt size={20} />} title="Invoice with GST">
           With every order
         </Item>
         <Item icon={<IconTruck size={20} />} title="Same-day dispatch">
-          Most orders, before 2 PM Mon–Sat
+          {/* Kept together: an en dash is a line-break opportunity ("Mon–" / "Sat"). */}
+          Most orders, before <span className="whitespace-nowrap">2 PM</span> <span className="whitespace-nowrap">Mon–Sat</span>
         </Item>
         <Item icon={<IconCheckCircle size={20} />} title="Warranty">
           Seller and manufacturer

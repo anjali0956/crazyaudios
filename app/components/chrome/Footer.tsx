@@ -117,7 +117,7 @@ export function Footer() {
             <span className="type-kicker mr-2 text-white/55">We accept</span>
             {PAYMENT_METHODS}
           </p>
-          <p>Prices include GST · GST invoice with every order</p>
+          <p>Prices include GST · Invoice with every order</p>
         </div>
       </div>
 

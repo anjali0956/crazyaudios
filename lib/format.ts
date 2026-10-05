@@ -38,26 +38,31 @@ function inrFormatter(withPaise: boolean) {
 }
 
 /**
- * "₹1,113" for prices of ₹10 and up (whole rupees, half rounds up),
- * "₹1.20" for tiny per-piece prices under ₹10 that have paise.
+ * "₹1,113" for whole amounts; the exact paise ("₹1,112.50", "₹1.20") whenever
+ * the amount has them (rounded half up to 2 decimals), so a displayed price
+ * always equals what Razorpay charges.
  */
 export function formatINR(value: number) {
   const n = Number(value) || 0;
   const paise = roundHalfUp(n, 2);
-  if (Math.abs(paise) < 10 && !Number.isInteger(paise)) {
-    return inrFormatter(true).format(paise);
-  }
-  return inrFormatter(false).format(roundHalfUp(n, 0));
+  // Whole rupees when the amount is whole; otherwise the exact paise, so what we
+  // show always equals what Razorpay charges (a flash-sale ₹1,112.50 is never
+  // shown as ₹1,113 while ₹1,112.50 is collected).
+  if (!Number.isInteger(paise)) return inrFormatter(true).format(paise);
+  return inrFormatter(false).format(paise);
 }
 
 /**
  * Whole rupees with Indian grouping, without Intl: 150000 -> "₹1,50,000".
- * Same output as formatINR for whole, non-negative amounts (checked for every
- * value up to 2 lakh). For constants built when a module loads (announcement
- * and payment lines), so loading them never sets up an ICU formatter.
+ * Only for whole-rupee constants built when a module loads (the announcement
+ * and payment lines in chrome/links.ts), so loading them never sets up an ICU
+ * formatter. Output equals formatINR for whole, non-negative amounts (checked
+ * for every value up to 2 lakh); anything else is handed to formatINR itself.
  */
 export function formatINRWhole(value: number) {
-  const digits = String(Math.max(0, Math.round(Number(value) || 0)));
+  const n = Number(value) || 0;
+  if (!Number.isSafeInteger(n) || n < 0) return formatINR(n);
+  const digits = String(n);
   if (digits.length <= 3) return `₹${digits}`;
   return `₹${digits.slice(0, -3).replace(/\B(?=(\d{2})+(?!\d))/g, ",")},${digits.slice(-3)}`;
 }

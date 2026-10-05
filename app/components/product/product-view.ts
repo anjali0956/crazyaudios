@@ -40,11 +40,22 @@ export function pdpTitle(product: CatalogProduct, brand: string | null) {
   return displayName(product, { dropBrand: Boolean(brand) });
 }
 
-/** <title> (the layout template appends " | CrazyAudios"), spec §12/§14. */
-export function pageTitle(product: CatalogProduct) {
-  return isDirectlyImported(product.category)
-    ? `${product.displayName} – Original, directly imported`
-    : `${product.displayName} – Original`;
+/**
+ * <title> (the layout template appends " | CrazyAudios"), spec §12/§14.
+ * `maker` disambiguates two listings whose display names collide (e.g. "BC557B"
+ * from Multicomp Pro and from onsemi), so every product page keeps a unique title.
+ */
+export function pageTitle(product: CatalogProduct, maker?: string | null) {
+  const name = maker ? `${product.displayName} (${maker})` : product.displayName;
+  return isDirectlyImported(product.category) ? `${name} – Original, directly imported` : `${name} – Original`;
+}
+
+/** The maker to show in the <title> when another listing has the same display name but a different maker. */
+export function titleMaker(product: CatalogProduct, all: CatalogProduct[]) {
+  const brand = pdpBrand(product);
+  if (!brand) return null;
+  const twins = all.filter((other) => other._id !== product._id && other.displayName === product.displayName);
+  return twins.length && twins.every((other) => pdpBrand(other) !== brand) ? brand : null;
 }
 
 /**
@@ -54,7 +65,7 @@ export function pageTitle(product: CatalogProduct) {
  */
 export function pdpTrustLine(product: CatalogProduct, brand: string | null) {
   if (categoryInfo(product.category).group === "speaker-drivers" && brand !== "Peerless by Tymphany") {
-    return "Original · GST invoice";
+    return "Original · Invoice with GST";
   }
   return trustLine(product.category);
 }
@@ -135,7 +146,7 @@ export function keySpecRows(product: CatalogProduct, brand: string | null): Spec
   else if (product.descriptor) rows.push({ label: "Type", value: product.descriptor });
   if (brand) rows.push({ label: "Brand", value: brand });
 
-  // Capacitors listed without spec lines still state both values in their name ("10000µF 63V capacitor").
+  // Capacitors listed without spec lines still state both values in their name ("10000µF 63V Capacitor").
   if (product.category === "capacitor" && !has(/^capacitance$/i)) {
     const values = product.displayName.match(/(\d+(?:\.\d+)?\s?µF)\s+(\d+(?:\.\d+)?\s?V)\b/);
     if (values) {
@@ -176,7 +187,7 @@ export function metaDescription(product: CatalogProduct, brand: string | null) {
   const pack = product.minQty > 1 ? ` for a pack of ${product.minQty}` : "";
   const stock = product.stock > 0 ? "In stock" : "Out of stock";
   const pay = isCodAllowed(product.sellPrice) ? "Cash on Delivery available" : "Pay by UPI, card or netbanking";
-  const facts = `${formatINR(product.sellPrice)}${pack} incl. GST · ${stock} · GST invoice · ${pay}.`;
+  const facts = `${formatINR(product.sellPrice)}${pack} incl. GST · ${stock} · invoice with every order · ${pay}.`;
   const first = clip((highlightsOf(product)[0] ?? "").replace(/[.\s]+$/, ""), 120);
   const tail = first && !first.endsWith("…") ? `${first}.` : first;
   return [lead, facts, tail].filter(Boolean).join(" ");

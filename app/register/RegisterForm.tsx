@@ -31,9 +31,6 @@ function useLoginHref() {
 }
 
 export default function RegisterForm() {
-  const [name, setName] = useState("");
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [fieldErrors, setFieldErrors] = useState<FieldErrors>({});
   const [success, setSuccess] = useState(false);
@@ -42,18 +39,17 @@ export default function RegisterForm() {
 
   const handleRegister = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-    // Read the inputs themselves: text typed or autofilled before the page
-    // finished loading never reaches React state. (ids, not names, so a submit
-    // before hydration can't put the password in the URL.)
+    // Read the inputs themselves. They are uncontrolled on purpose: text typed or
+    // autofilled before the page finished loading lives only in the DOM, and a
+    // controlled value="" would wipe it on the first re-render after hydration
+    // (useLoginHref re-renders once whenever the URL has ?callbackUrl=).
+    // (ids, not names, so a submit before hydration can't put the password in the URL.)
     const form = e.currentTarget;
     const values = {
-      name: inputValue(form, "register-name", name),
-      email: inputValue(form, "register-email", email),
-      password: inputValue(form, "register-password", password),
+      name: inputValue(form, "register-name", ""),
+      email: inputValue(form, "register-email", ""),
+      password: inputValue(form, "register-password", ""),
     };
-    setName(values.name);
-    setEmail(values.email);
-    setPassword(values.password);
     setError("");
     setFieldErrors({});
     setSuccess(false);
@@ -63,9 +59,6 @@ export default function RegisterForm() {
       await axios.post("/api/register", values);
 
       setSuccess(true);
-      setName("");
-      setEmail("");
-      setPassword("");
     } catch (err) {
       const data = axios.isAxiosError(err) ? err.response?.data : null;
       setFieldErrors((data?.fieldErrors as FieldErrors) || {});
@@ -97,8 +90,6 @@ export default function RegisterForm() {
           type="text"
           id="register-name"
           label="Name"
-          value={name}
-          onChange={(e) => setName(e.target.value)}
           autoComplete="name"
           autoCapitalize="words"
           error={fieldErrors.name}
@@ -109,8 +100,6 @@ export default function RegisterForm() {
           type="email"
           id="register-email"
           label="Email"
-          value={email}
-          onChange={(e) => setEmail(e.target.value)}
           autoComplete="email"
           inputMode="email"
           autoCapitalize="none"
@@ -124,8 +113,6 @@ export default function RegisterForm() {
           id="register-password"
           label="Password"
           hint={fieldErrors.password ? undefined : "At least 8 characters."}
-          value={password}
-          onChange={(e) => setPassword(e.target.value)}
           autoComplete="new-password"
           minLength={8}
           error={fieldErrors.password}

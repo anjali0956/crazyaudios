@@ -31,8 +31,6 @@ function useRegisterHref() {
 }
 
 export default function LoginForm() {
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [status, setStatus] = useState("");
   const [submitting, setSubmitting] = useState(false);
@@ -41,13 +39,13 @@ export default function LoginForm() {
 
   const handleLogin = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-    // Read the inputs themselves: text typed or autofilled before the page
-    // finished loading never reaches React state. (ids, not names, so a submit
-    // before hydration can't put the password in the URL.)
-    const formEmail = inputValue(e.currentTarget, "login-email", email).trim();
-    const formPassword = inputValue(e.currentTarget, "login-password", password);
-    setEmail(formEmail);
-    setPassword(formPassword);
+    // Read the inputs themselves. They are uncontrolled on purpose: text typed or
+    // autofilled before the page finished loading lives only in the DOM, and a
+    // controlled value="" would wipe it on the first re-render after hydration
+    // (useRegisterHref re-renders once whenever the URL has ?callbackUrl=).
+    // (ids, not names, so a submit before hydration can't put the password in the URL.)
+    const formEmail = inputValue(e.currentTarget, "login-email", "").trim();
+    const formPassword = inputValue(e.currentTarget, "login-password", "");
     setError("");
     setStatus("");
     setSubmitting(true);
@@ -91,8 +89,6 @@ export default function LoginForm() {
           type="email"
           id="login-email"
           label="Email"
-          value={email}
-          onChange={(e) => setEmail(e.target.value)}
           autoComplete="email"
           inputMode="email"
           autoCapitalize="none"
@@ -104,8 +100,6 @@ export default function LoginForm() {
         <PasswordInput
           id="login-password"
           label="Password"
-          value={password}
-          onChange={(e) => setPassword(e.target.value)}
           autoComplete="current-password"
           required
         />

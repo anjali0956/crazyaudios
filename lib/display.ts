@@ -11,8 +11,9 @@ const PREFIX_SPACE = /^(LM|TDA|TPA|NE|TL|IRF|IRFP|TIP|BD|BC|MJ|KSC|MBR|BAT|2SC|2
 // Whole-name fixes for listings typed in a hurry (lowercased, single-spaced keys).
 const NAME_ALIASES: Record<string, string> = {
   tlo72: "TL072",
-  "10000 uf 63volt": "10000µF 63V capacitor",
-  "0.22 ohms 5watt": "0.22 Ω 5 W resistor",
+  // Title-cased like the other listings ("2.2µF 63V Capacitor"), so cards and lists read consistently.
+  "10000 uf 63volt": "10000µF 63V Capacitor",
+  "0.22 ohms 5watt": "0.22 Ω 5 W Resistor",
   "bc557b on semi": "BC557B",
 };
 
