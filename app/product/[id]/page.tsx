@@ -18,6 +18,7 @@ import {
   pdpBrand,
   pdpTitle,
   pdpTrustLine,
+  titleMaker,
 } from "@/app/components/product/product-view";
 import type { PdpBuyProduct } from "@/app/components/product/types";
 import { PartChip } from "@/app/components/ui/Badge";
@@ -74,6 +75,13 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
   }
   if (!product) return { title: "Product not found", robots: { index: false, follow: true } };
 
+  // Two listings with the same display name (e.g. "BC557B" by two makers) get the maker in the title.
+  let maker: string | null = null;
+  try {
+    maker = titleMaker(product, await getAllProducts());
+  } catch {
+    maker = null;
+  }
   const { sellPrice } = getSellablePrice(product);
   const inStock = Number(product.stock) > 0;
   const description = metaDescription(product, pdpBrand(product));
@@ -87,7 +95,7 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
     : DEFAULT_OPEN_GRAPH.images;
 
   return {
-    title: pageTitle(product),
+    title: pageTitle(product, maker),
     description,
     alternates: { canonical: url },
     openGraph: {
